@@ -70,9 +70,22 @@ Newest entries at the bottom. Each entry: what changed, why, and the commit.
   edge cases, multi-line totals, exact scatter pays, double retrigger in one spin, collect rounding,
   retrigger on last free spin, SessionStore pruning.
 
+### Commits
+- `666d803` xUnit test suite.
+
+### S1 + S2 fixed (backend builder)
+- S1: session middleware replaced by `MapGroup("/api")` (state/spin/reset) + endpoint filter; `/api/info` sets no
+  cookie (fixes the "two sessions on first load" issue). Built-in rate limiter: token bucket per IP, burst 20,
+  10/s refill, 429 + `Retry-After` + `{error}`; configurable via `RateLimit:Burst` / `RateLimit:PerSecond`.
+  Never-spun sessions expire after 30 min (`GameSession.HasSpun`), played sessions 24 h.
+- S2: wrong verb → 405. Needed `DisableStaticAssetNotFoundRuntimeFallback=true` (MapStaticAssets' Development
+  catch-all swallowed 405) and a segment-level regex fallback instead of a catch-all regex.
+- Tests: 82 total, 81 pass, 1 skipped (S3). New `ApiFactory` (raised limits) and `RateLimitTests`.
+  Coordinator re-ran tests and played a spin in the browser: boots, no console errors.
+
 ## Where we left off
-- Next candidates (user decides): backend batch 1 from REVIEW.md (S1 sessions/rate limit, S2 405, T1 test seams,
-  S3 error bodies, S4 cookie hardening), frontend batch (H1 publish fix, C5 bet text, C1–C3/C7 client races).
+- Next candidates (user decides): backend T1 test seams, S3 error bodies, S4 cookie hardening;
+  frontend batch (H1 publish fix, C5 bet text, C1–C3/C7 client races).
   After T1: tester adds the blocked deterministic tests.
 - Later: SVG symbol art, persistent sessions (database), deploy.
 
@@ -88,3 +101,4 @@ Newest entries at the bottom. Each entry: what changed, why, and the commit.
 9. Code review lessons: never trust the client, scoped middleware, testability seams, async discipline, RTP.
 10. Monte-Carlo simulation, reusing business logic, multi-threading, Release vs Debug, variance.
 11. Testing: xUnit Fact/Theory, invariant testing, WebApplicationFactory + IClassFixture, traits, Skip as to-do.
+12. Route groups, endpoint filters vs middleware, rate limiting (token bucket, 429), route constraints, 404 vs 405.

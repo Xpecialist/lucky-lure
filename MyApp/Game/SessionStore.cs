@@ -6,6 +6,9 @@ namespace MyApp.Game;
 public sealed class SessionStore
 {
     private static readonly TimeSpan IdleLimit = TimeSpan.FromHours(24);
+    // Sessions that never spun (bots, one-off visits) go much sooner.
+    private static readonly TimeSpan UnplayedIdleLimit = TimeSpan.FromMinutes(30);
+    // One O(n) sweep at most every 10 minutes, run by whichever Create() call is due.
     private static readonly TimeSpan PruneInterval = TimeSpan.FromMinutes(10);
 
     private readonly ConcurrentDictionary<string, GameSession> _sessions = new();
@@ -43,9 +46,10 @@ public sealed class SessionStore
             return;
 
         var cutoff = now - IdleLimit;
+        var unplayedCutoff = now - UnplayedIdleLimit;
         foreach (var (id, session) in _sessions)
         {
-            if (session.LastSeenUtc < cutoff)
+            if (session.LastSeenUtc < (session.HasSpun ? cutoff : unplayedCutoff))
                 _sessions.TryRemove(id, out _);
         }
     }

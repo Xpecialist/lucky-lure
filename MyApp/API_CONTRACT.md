@@ -12,6 +12,9 @@ Original fishing-themed slot. Play money only. No third-party slot names, logos 
 - Player identity is an HttpOnly cookie (`lucky_lure_sid`) set by the server on first request.
   The frontend just uses same-origin `fetch`; it never reads or sends the id itself.
 - Errors: HTTP 400 with `{ "error": "message" }`.
+- `/api/state`, `/api/spin` and `/api/reset` are rate limited per client IP (burst 20, refills 10/s).
+  Over the limit → HTTP 429 with `{ "error": "Too many requests. Slow down." }` and a `Retry-After` header.
+  Only these three create the session cookie; `/api/info` never does.
 
 ## Symbols
 

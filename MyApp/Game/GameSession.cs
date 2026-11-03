@@ -15,6 +15,8 @@ public sealed class GameSession(string id)
     public decimal FeatureWin { get; set; }
 
     public DateTime LastSeenUtc { get; set; } = DateTime.UtcNow;
+    /// <summary>True once the player has spun; unplayed sessions expire sooner.</summary>
+    public bool HasSpun { get; set; }
 
     public void ClearFeature()
     {

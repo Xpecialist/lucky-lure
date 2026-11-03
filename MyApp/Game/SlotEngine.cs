@@ -121,6 +121,7 @@ public sealed class SlotEngine
         if (Validate(s, bet) is { } error)
             throw new InvalidOperationException(error);
 
+        s.HasSpun = true;
         var free = s.FreeSpinsRemaining > 0;
         decimal stake;
         if (free)

@@ -10,7 +10,7 @@ namespace MyApp.Tests.Api;
 /// and IClassFixture shares one server across the tests in this class.
 /// Each HttpClient has its own cookie jar, i.e. its own player session.
 /// </summary>
-public class ApiTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
     private const string CookieName = "lucky_lure_sid";
 
@@ -48,6 +48,44 @@ public class ApiTests(WebApplicationFactory<Program> factory) : IClassFixture<We
         Assert.Contains("samesite=strict", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("path=/", cookie, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public async Task GetInfo_DoesNotCreateASession()
+    {
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+
+        var response = await client.GetAsync("/api/info");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.False(response.Headers.Contains("Set-Cookie"));
+    }
+
+    [Fact]
+    public async Task GetState_AfterInfo_IsWhatSetsTheCookie()
+    {
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        await client.GetAsync("/api/info");
+
+        var response = await client.GetAsync("/api/state");
+
+        Assert.Contains(SessionCookies(response), v => v.StartsWith(CookieName + "="));
+    }
+
+    [Fact]
+    public async Task FirstPageLoad_InfoAndStateInParallel_CreatesExactlyOneSession()
+    {
+        // What the client does on load: both calls at once, before any cookie exists.
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+
+        var responses = await Task.WhenAll(client.GetAsync("/api/info"), client.GetAsync("/api/state"));
+
+        Assert.Single(responses.SelectMany(SessionCookies));
+    }
+
+    private static IEnumerable<string> SessionCookies(HttpResponseMessage response) =>
+        response.Headers.TryGetValues("Set-Cookie", out var values)
+            ? values.Where(v => v.StartsWith(CookieName + "="))
+            : [];
 
     [Fact]
     public async Task LaterCalls_WithTheCookie_DoNotIssueANewOne()
@@ -148,6 +186,8 @@ public class ApiTests(WebApplicationFactory<Program> factory) : IClassFixture<We
     [Theory]
     [InlineData("/api/nope")]
     [InlineData("/api/info/extra")]
+    [InlineData("/api")]
+    [InlineData("/API/nope")]
     public async Task UnknownApiPath_Returns404_NotThePage(string path)
     {
         var response = await NewPlayer().GetAsync(path);
@@ -156,7 +196,17 @@ public class ApiTests(WebApplicationFactory<Program> factory) : IClassFixture<We
         Assert.NotEqual("text/html", response.Content.Headers.ContentType?.MediaType);
     }
 
-    [Fact(Skip = "Known REVIEW S2: GET /api/spin returns 404 today (the /api fallback swallows it). Un-skip when S2 is fixed.")]
+    [Theory]
+    [InlineData("/missing.js")]
+    [InlineData("/css/missing.css")]
+    public async Task MissingStaticFile_Returns404_NotThePage(string path)
+    {
+        var response = await NewPlayer().GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task GetSpin_WrongVerb_Returns405()
     {
         var response = await NewPlayer().GetAsync("/api/spin");
@@ -164,10 +214,13 @@ public class ApiTests(WebApplicationFactory<Program> factory) : IClassFixture<We
         Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
     }
 
-    [Fact]
-    public async Task GetRoot_ReturnsTheClientHtmlPage()
+    [Theory]
+    [InlineData("/")]
+    [InlineData("/some/client/route")]
+    [InlineData("/apiary")]
+    public async Task NonApiRoutes_ReturnTheClientHtmlPage(string path)
     {
-        var response = await NewPlayer().GetAsync("/");
+        var response = await NewPlayer().GetAsync(path);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
