@@ -14,12 +14,46 @@ internal static class SpinChecks
         GridShape(r.Grid, r.WasFreeSpin, r.Bet);
         foreach (var step in r.Respins)
             GridShape(step.Grid, wasFree: false, r.Bet);
+        if (r.Net is { } net)
+            GridShape(net.Grid, r.WasFreeSpin, r.Bet);
 
         var cells = Play.Cells(r).ToList();
         Assert.Equal(FinalGrid(r).SelectMany(reel => reel).Count(c => c.Symbol == Symbol.Scatter), r.ScatterCount); // final grid
-        Assert.Equal(cells.Count(c => c.Symbol == Symbol.Wild), r.WildCount);
+        Assert.Equal(cells.Count(c => c.Symbol == Symbol.Wild), r.WildCount); // landed grid; the net adds no Wilds
 
         Respins(r);
+        Net(r);
+    }
+
+    /// <summary>The net cast rule (see API_CONTRACT.md "Net cast"): only in free spins, only on a qualifying grid.</summary>
+    public static void Net(SpinResult r)
+    {
+        if (r.Net is not { } net)
+            return; // also fine on a qualifying grid: the cast is a chance, not a certainty
+        Assert.True(r.WasFreeSpin, "Net cast in the base game.");
+
+        var landed = Play.Cells(r).ToList();
+        Assert.Contains(landed, c => c.Symbol == Symbol.Wild);
+        Assert.DoesNotContain(landed, c => c.Symbol == Symbol.Fish);
+
+        Assert.Equal(net.Size == NetSize.Big ? 5 : 3, net.Positions.Length);
+        Assert.Equal(net.Positions.Length, net.Positions.Select(p => (p[0], p[1])).Distinct().Count());
+        var changed = net.Positions.Select(p => (p[0], p[1])).ToHashSet();
+        for (var reel = 0; reel < Contract.Reels; reel++)
+        {
+            for (var row = 0; row < Contract.Rows; row++)
+            {
+                if (changed.Contains((reel, row)))
+                {
+                    Assert.NotEqual(Symbol.Wild, r.Grid[reel][row].Symbol);
+                    Assert.Equal(Symbol.Fish, net.Grid[reel][row].Symbol); // value checked by GridShape
+                }
+                else
+                {
+                    Assert.Equal(r.Grid[reel][row], net.Grid[reel][row]); // everything else untouched
+                }
+            }
+        }
     }
 
     /// <summary>The nudge respin rule, step by step (see API_CONTRACT.md "Nudge respin").</summary>
@@ -114,7 +148,8 @@ internal static class SpinChecks
         Assert.Equal(0, r.FreeSpinsAwarded);
         Assert.Equal(before.FreeSpinBet, after.FreeSpinBet);
 
-        var fishSum = Play.Cells(r).Where(c => c.Symbol == Symbol.Fish).Sum(c => c.Value!.Value);
+        // Collect is scored on the net-cast grid when there is one.
+        var fishSum = ScoredGrid(r).SelectMany(reel => reel).Where(c => c.Symbol == Symbol.Fish).Sum(c => c.Value!.Value);
         var expectedCollect = r.WildCount == 0 ? 0m : Math.Round(fishSum * r.WildCount * before.Multiplier, 2);
         Assert.Equal(expectedCollect, r.CollectWin);
 
@@ -133,7 +168,7 @@ internal static class SpinChecks
     /// <summary>Each line win (original grid and every respin grid) follows its payline from reel 1 and matches its grid.</summary>
     public static void LineWins(SpinResult r, int[][] paylines)
     {
-        LineWins(r.Grid, r.LineWins, paylines);
+        LineWins(ScoredGrid(r), r.LineWins, paylines); // net.grid when a net was cast
         foreach (var step in r.Respins)
             LineWins(step.Grid, step.LineWins, paylines);
     }
@@ -148,6 +183,8 @@ internal static class SpinChecks
             Assert.InRange(w.Count, 3, Contract.Reels);
             Assert.NotEqual(Symbol.Scatter, w.Symbol);
             Assert.Equal(w.Count, w.Positions.Length);
+            // A Scatter is never part of a line win (it is not a wild and pays only as a scatter).
+            Assert.All(w.Positions, p => Assert.NotEqual(Symbol.Scatter, grid[p[0]][p[1]].Symbol));
 
             var line = paylines[w.Line];
             for (var reel = 0; reel < w.Count; reel++)
@@ -216,7 +253,11 @@ internal static class SpinChecks
 
     private static Cell[][] FinalGrid(SpinResult r) => r.Respins.Count > 0 ? r.Respins[^1].Grid : r.Grid;
 
-    private static IEnumerable<Cell[][]> AllGrids(SpinResult r) => [r.Grid, .. r.Respins.Select(s => s.Grid)];
+    /// <summary>The grid this spin's top-level line wins and collect were scored on.</summary>
+    private static Cell[][] ScoredGrid(SpinResult r) => r.Net?.Grid ?? r.Grid;
+
+    private static IEnumerable<Cell[][]> AllGrids(SpinResult r) =>
+        [r.Grid, .. r.Respins.Select(s => s.Grid), .. r.Net is { } net ? [net.Grid] : Array.Empty<Cell[][]>()];
 
     private static IEnumerable<LineWin> AllLineWins(SpinResult r) => [.. r.LineWins, .. r.Respins.SelectMany(s => s.LineWins)];
 }
