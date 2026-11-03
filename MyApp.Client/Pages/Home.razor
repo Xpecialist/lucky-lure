@@ -12,6 +12,8 @@
     <FreeSpinBanner State="state!" Info="info!" FeatureWin="featureWinOverride" />
 }
 
+@* .cabinet only matters on wide screens: there the SPIN column sits to the right of the reels (see app.css). *@
+<div class="cabinet">
 <main class="machine">
     <div class="frame">
         <div class="reels" aria-label="Reels">
@@ -66,6 +68,7 @@
         </button>
     </div>
 </section>
+</div>
 
 <Paytable Info="info" Bet="CurrentBet" />
 

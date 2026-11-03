@@ -242,6 +242,47 @@ button:focus-visible { outline: 3px solid var(--gold-light); outline-offset: 2px
   .message { font-size: 14px; }
 }
 
+/* Wide / desktop screens: SPIN (with Auto + Reset under it) in a column to the right of the reels.
+   An equal empty column on the left keeps the reel window centred under the title.
+   Width budget: 2 x 130 + 548 (frame) + 4 x 8 (gaps) = 840px, which fits 900px minus scrollbar and padding. */
+@media (min-width: 900px) and (orientation: landscape) {
+  :root {
+    --side: 130px;
+    --frame-w: calc(var(--cell) * 5 + var(--gap) * 4 + 32px); /* reels + frame padding/border */
+  }
+  .app { max-width: 880px; }
+  .app > :is(.fs-banner, .paytable, .footer) { max-width: 640px; margin-left: auto; margin-right: auto; }
+
+  .cabinet {
+    display: grid;
+    grid-template-columns: var(--side) repeat(3, calc((var(--frame-w) - 16px) / 3)) var(--side);
+    grid-template-areas:
+      ".  frame frame frame side"
+      ".  msg   msg   msg   ."
+      ".  stat1 stat2 stat3 .";
+    column-gap: 8px;
+    row-gap: 10px;
+    justify-content: center;
+  }
+  /* Flatten the existing wrappers so their children land in the cabinet grid. */
+  .cabinet > .machine, .cabinet > .controls { display: contents; }
+  .cabinet .frame { grid-area: frame; justify-self: center; }
+  .cabinet .message { grid-area: msg; margin-top: 0; }
+  .cabinet .stat:nth-of-type(1) { grid-area: stat1; }
+  .cabinet .stat:nth-of-type(2) { grid-area: stat2; }
+  .cabinet .stat:nth-of-type(3) { grid-area: stat3; }
+
+  .cabinet .actions {
+    grid-area: side;
+    align-self: center;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 12px;
+  }
+  .cabinet .spin-btn { order: -1; width: 120px; height: 120px; font-size: 26px; }
+  .cabinet .spin-btn.free { font-size: 18px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bubbles { animation: none !important; }
   .spin-btn { transition: none; }
