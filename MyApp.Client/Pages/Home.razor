@@ -1,0 +1,78 @@
+﻿@page "/"
+
+<PageTitle>Lucky Lure</PageTitle>
+
+<header class="header">
+    <h1 class="title" tabindex="-1"><span class="title-hook" aria-hidden="true">🎣</span> Lucky Lure</h1>
+    <p class="play-note">Play money only · no real-money wagering</p>
+</header>
+
+@if (ShowBanner)
+{
+    <FreeSpinBanner State="state!" Info="info!" FeatureWin="featureWinOverride" />
+}
+
+<main class="machine">
+    <div class="frame">
+        <div class="reels" aria-label="Reels">
+            @for (var r = 0; r < Symbols.Reels; r++)
+            {
+                var reel = r;
+                <Reel Cells="grid[reel]"
+                      Spinning="reelSpinning[reel]"
+                      LandKey="spinId"
+                      WinRows="winMarks?[reel]"
+                      Dim="winMarks is not null"
+                      FillerBet="fillerBet"
+                      FreeMode="fillerFree" />
+            }
+        </div>
+    </div>
+    <div class="message @messageKind" aria-live="polite">@message</div>
+</main>
+
+<section class="controls" aria-label="Controls">
+    <div class="stat">
+        <span class="stat-label">Balance</span>
+        <span class="stat-value">@(state is null ? "—" : Fmt.Money(displayBalance))</span>
+    </div>
+
+    <div class="stat bet-box @(InFeature ? "locked" : null)">
+        <span class="stat-label">Bet @if (InFeature) { <span class="bet-lock">(locked)</span> }</span>
+        <div class="bet-row">
+            <button class="bet-btn" type="button" aria-label="Decrease bet"
+                    disabled="@(!CanChangeBet || betIndex <= 0)" @onclick="() => ChangeBet(-1)">−</button>
+            <span class="stat-value">@(Ready ? Fmt.Money(CurrentBet) : "—")</span>
+            <button class="bet-btn" type="button" aria-label="Increase bet"
+                    disabled="@(!CanChangeBet || betIndex >= BetCount - 1)" @onclick="() => ChangeBet(1)">+</button>
+        </div>
+    </div>
+
+    <div class="stat">
+        <span class="stat-label">Win</span>
+        <span class="stat-value">@Fmt.Money(winAmount)</span>
+    </div>
+
+    <div class="actions">
+        <button class="auto-btn" type="button" aria-pressed="@(autoOn ? "true" : "false")" @onclick="ToggleAutoAsync">
+            @(autoOn ? "Auto: ON" : "Auto")
+        </button>
+        <button class="spin-btn @(InFeature ? "free" : null)" type="button"
+                disabled="@(!Ready || busy)" @onclick="SpinAsync">
+            @(InFeature ? "FREE SPIN" : "SPIN")
+        </button>
+        <button class="reset-link" type="button" disabled="@(!Ready || busy || resetting)" @onclick="ResetAsync">
+            Reset balance
+        </button>
+    </div>
+</section>
+
+<Paytable Info="info" Bet="CurrentBet" />
+
+<footer class="footer">Lucky Lure is a game for entertainment. Balances are play money and have no cash value.</footer>
+
+@if (overlay is not null)
+{
+    <Overlay @key="overlay" Title="@overlay.Title" Text="@overlay.Text" Kind="@overlay.Kind"
+             AutoContinue="autoOn" OnDismiss="DismissOverlay" />
+}

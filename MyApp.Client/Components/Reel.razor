@@ -1,0 +1,100 @@
+@*
+    One reel window. Three visual modes, all animated by CSS only:
+      - Spinning: a looping strip (cells rendered twice, translateY -50% -> 0, infinite).
+                  It starts with the current symbols so the spin begins without a jump.
+      - Landing:  [final cells + 3 filler cells] slides from -50% to 0 with a small overshoot.
+      - Static:   just the three cells (initial grid).
+*@
+<div class="reel @(Dim ? "dim" : null)">
+    @if (Spinning)
+    {
+        <div class="strip looping" aria-hidden="true">
+            @foreach (var cell in loop) { @CellView(cell, false) }
+            @foreach (var cell in loop) { @CellView(cell, false) }
+        </div>
+    }
+    else
+    {
+        <div class="strip @(LandKey > 0 ? "landing" : null)" @key="LandKey">
+            @for (var row = 0; row < Cells.Length; row++)
+            {
+                @CellView(Cells[row], WinRows is { } w && row < w.Length && w[row])
+            }
+            @if (LandKey > 0)
+            {
+                @foreach (var cell in tail) { @CellView(cell, false) }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>The three cells (top to bottom) this reel shows when stopped.</summary>
+    [Parameter, EditorRequired] public Cell[] Cells { get; set; } = [];
+
+    [Parameter] public bool Spinning { get; set; }
+
+    /// <summary>Changes on every stop so the landing animation replays (0 = no animation).</summary>
+    [Parameter] public int LandKey { get; set; }
+
+    /// <summary>Winning rows on this reel (null = none).</summary>
+    [Parameter] public bool[]? WinRows { get; set; }
+
+    /// <summary>Dim the non-winning cells.</summary>
+    [Parameter] public bool Dim { get; set; }
+
+    /// <summary>Bet used for fish values on filler symbols.</summary>
+    [Parameter] public decimal FillerBet { get; set; } = 1m;
+
+    /// <summary>Free-spin strips show the Fisherman, base-game strips show Boats.</summary>
+    [Parameter] public bool FreeMode { get; set; }
+
+    private const int LoopFillers = 5;
+    private Cell[] loop = [];
+    private Cell[] tail = [];
+
+    private bool wasSpinning;
+    private Cell[]? lastCells;
+    private int lastLandKey = -1;
+    private bool[]? lastWinRows;
+    private bool lastDim;
+    private bool dirty = true;
+
+    protected override void OnParametersSet()
+    {
+        if (Spinning && !wasSpinning)
+            loop = [.. Cells, .. Symbols.RandomCells(LoopFillers, FillerBet, FreeMode)];
+        else if (!Spinning && wasSpinning)
+            tail = Symbols.RandomCells(Symbols.Rows, FillerBet, FreeMode);
+
+        // The parent re-renders often while spinning; only diff this reel when something changed.
+        dirty = Spinning != wasSpinning || !ReferenceEquals(Cells, lastCells) || LandKey != lastLandKey
+                || !ReferenceEquals(WinRows, lastWinRows) || Dim != lastDim;
+
+        wasSpinning = Spinning;
+        lastCells = Cells;
+        lastLandKey = LandKey;
+        lastWinRows = WinRows;
+        lastDim = Dim;
+    }
+
+    protected override bool ShouldRender() => dirty;
+
+    private static RenderFragment CellView(Cell cell, bool win)
+    {
+        var meta = Symbols.Of(cell.Symbol);
+        var fishValue = cell.Symbol == Symbol.Fish ? cell.Value : null;
+        var label = fishValue is { } fv ? $"{meta.Name} {Fmt.Money(fv)}" : meta.Name;
+        return @<div class="cell @meta.Kind @meta.Css @(win ? "win" : null)" title="@label">
+                    <span class="glyph">@meta.Glyph</span>
+                    @if (fishValue is { } v)
+                    {
+                        <span class="val">@Fmt.Short(v)</span>
+                    }
+                    @if (meta.Tag is not null)
+                    {
+                        <span class="tag">@meta.Tag</span>
+                    }
+                </div>;
+    }
+}

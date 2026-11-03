@@ -1,0 +1,114 @@
+<details class="paytable">
+    <summary>Paytable &amp; rules</summary>
+    <div class="paytable-body">
+        @if (Info is null)
+        {
+            <p>Loading…</p>
+        }
+        else
+        {
+            var lineBet = Bet / 10m;
+            <p class="pt-note">
+                Amounts for a total bet of <b>@Fmt.Money(Bet)</b> (line bet @Fmt.Money(lineBet)).
+                Wins pay left to right from reel 1 on @(Info.Paylines?.Length ?? 10) lines.
+            </p>
+
+            <table class="pt-table">
+                <thead><tr><th>Symbol</th><th>×3</th><th>×4</th><th>×5</th></tr></thead>
+                <tbody>
+                    @foreach (var (key, pays) in Info.Paytable ?? new Dictionary<string, decimal[]>())
+                    {
+                        <tr>
+                            <td>@SymbolLabel(key)</td>
+                            @for (var i = 0; i < 3; i++)
+                            {
+                                var v = pays is not null && i < pays.Length ? pays[i] : 0m;
+                                <td>@(v > 0 ? Fmt.Money(v * lineBet) : "—")</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (Info.Scatter is { Count: > 0 } scatter)
+            {
+                <table class="pt-table">
+                    <thead><tr><th>@SymbolLabel(nameof(Symbol.Scatter))</th><th>Pays</th><th>Free spins</th></tr></thead>
+                    <tbody>
+                        @foreach (var (count, award) in scatter.OrderBy(kv => int.TryParse(kv.Key, out var n) ? n : int.MaxValue))
+                        {
+                            <tr><td>@count anywhere</td><td>@Fmt.Money(award.Pay * Bet)</td><td>@award.FreeSpins</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            <p class="pt-rules">
+                <b>Free spins:</b> 3+ Boats trigger free spins at the same bet. The Fisherman (WILD) only appears in
+                free spins and substitutes for all symbols except Fish and Boats. When he lands he reels in every Fish
+                on screen: fish total × fishermen × multiplier.
+            </p>
+            <p class="pt-rules">
+                <b>Retrigger:</b> every @PerRetrigger Fishermen collected adds 10 spins and raises the multiplier
+                @Multipliers (from the next spin, max @MaxRetriggers times). Fish show their cash value for the current bet.
+            </p>
+
+            @if (Info.Paylines is { Length: > 0 } lines)
+            {
+                <div class="pt-lines">
+                    @for (var idx = 0; idx < lines.Length; idx++)
+                    {
+                        var line = lines[idx];
+                        <div class="pt-line">
+                            <div class="pt-line-grid">
+                                @for (var row = 0; row < Symbols.Rows; row++)
+                                {
+                                    @for (var reel = 0; reel < Symbols.Reels; reel++)
+                                    {
+                                        <span class="@(reel < line.Length && line[reel] == row ? "on" : null)"></span>
+                                    }
+                                }
+                            </div>
+                            @(idx + 1)
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </div>
+</details>
+
+@code {
+    [Parameter] public GameInfo? Info { get; set; }
+
+    /// <summary>Total bet the amounts are shown for.</summary>
+    [Parameter] public decimal Bet { get; set; } = 1m;
+
+    private GameInfo? renderedInfo;
+    private decimal renderedBet = -1m;
+
+    private int PerRetrigger => Info is { WildsPerRetrigger: > 0 } i ? i.WildsPerRetrigger : 4;
+    private int MaxRetriggers => Math.Max(0, (Info?.Multipliers?.Count ?? 4) - 1);
+    private string Multipliers => string.Join(" → ", (Info?.Multipliers ?? [1, 2, 3, 10]).Select(m => $"×{m}"));
+
+    // Only re-render when the data or the bet changes (the parent re-renders often while spinning).
+    protected override bool ShouldRender()
+    {
+        if (ReferenceEquals(Info, renderedInfo) && Bet == renderedBet) return false;
+        renderedInfo = Info;
+        renderedBet = Bet;
+        return true;
+    }
+
+    private static RenderFragment SymbolLabel(string key)
+    {
+        var m = Symbols.Of(key);
+        return @<span class="pt-sym">
+                    <span class="mini @m.Kind @m.Css">@m.Glyph</span>@m.Name
+                    @if (m.Tag is not null)
+                    {
+                        <small> (@m.Tag)</small>
+                    }
+                </span>;
+    }
+}

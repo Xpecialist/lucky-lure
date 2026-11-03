@@ -1,0 +1,40 @@
+<section class="fs-banner" aria-live="polite">
+    <div class="fs-head">FREE SPINS</div>
+    <div class="fs-stats">
+        <div class="fs-stat"><span class="fs-label">Spins left</span><span class="fs-value">@State.FreeSpinsRemaining / @State.FreeSpinsTotal</span></div>
+        <div class="fs-stat"><span class="fs-label">Multiplier</span><span class="fs-value">×@State.Multiplier</span></div>
+        <div class="fs-stat"><span class="fs-label">Feature win</span><span class="fs-value">@Fmt.Money(FeatureWin ?? State.FreeSpinWin)</span></div>
+    </div>
+    <div class="fs-wilds">
+        <span class="fs-label">Fishermen <b>@(Maxed ? State.WildsCollected.ToString() : $"{Progress} / {PerRetrigger}")</b></span>
+        <div class="meter" role="presentation"><div class="meter-fill" style="width: @(Progress * 100 / PerRetrigger)%"></div></div>
+        <span class="fs-next">@NextText</span>
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public GameState State { get; set; } = default!;
+    [Parameter, EditorRequired] public GameInfo Info { get; set; } = default!;
+
+    /// <summary>Final feature win to show after the last free spin (state may already be cleared).</summary>
+    [Parameter] public decimal? FeatureWin { get; set; }
+
+    private int PerRetrigger => Info.WildsPerRetrigger > 0 ? Info.WildsPerRetrigger : 4;
+    private int MaxRetriggers => Math.Max(0, (Info.Multipliers?.Count ?? 4) - 1);
+    private bool Maxed => State.Retriggers >= MaxRetriggers;
+
+    private int Progress => Maxed
+        ? PerRetrigger
+        : Math.Clamp(State.WildsCollected - State.Retriggers * PerRetrigger, 0, PerRetrigger);
+
+    private string NextText
+    {
+        get
+        {
+            if (Maxed) return "Max multiplier reached";
+            var mults = Info.Multipliers;
+            var next = mults is not null && State.Retriggers + 1 < mults.Count ? $", ×{mults[State.Retriggers + 1]}" : "";
+            return $"{PerRetrigger - Progress} more → +10 spins{next}";
+        }
+    }
+}
