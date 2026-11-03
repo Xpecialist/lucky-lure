@@ -18,6 +18,13 @@ Read this file first, then `docs/DEVLOG.md` (history, decisions, where we left o
 - The user is **learning .NET for their CV**. After each step give a short "Brief N" on the .NET concepts used
   (with file:line pointers and CV keywords). Continue the numbering from `docs/DEVLOG.md`.
 - `MyApp/API_CONTRACT.md` is the binding server/client spec. Agents don't change it on their own; propose changes.
+- **Contract-first:** for a feature touching both sides, the coordinator updates `API_CONTRACT.md` and
+  `MyApp.Shared/Models.cs` first, then starts backend and frontend builders in parallel.
+- **Parallel builders:** while the frontend works/runs the server in the main folder, give the backend its own
+  git worktree (e.g. `git worktree add -b backend/<topic> ..\LuckyLure-backend HEAD`) so builds don't collide on
+  locked `bin/`. Builders commit on their branch but never push or merge; the coordinator verifies, merges
+  (`--no-ff`) into `main`, re-runs build + tests on the merge, then asks before pushing.
+- After each step: update `docs/DEVLOG.md` (entry + brief number) and `docs/REVIEW.md` statuses before committing.
 
 ## Layout
 
@@ -38,7 +45,8 @@ docs/                  DEVLOG.md, REVIEW.md
 ```bash
 dotnet build MyApp.sln
 dotnet run --project MyApp --launch-profile http          # http://localhost:5080
-dotnet run -c Release --project tools/LuckyLure.Sim -- 2000000   # RTP sim, ~6 s
+dotnet run -c Release --project tools/LuckyLure.Sim -- 2000000   # RTP sim, production crypto RNG, ~7 s
+dotnet run -c Release --project tools/LuckyLure.Sim -- 2000000 4 fast   # Random.Shared, ~2x quicker
 dotnet test MyApp.sln --filter "Category!=Slow"           # fast tests, ~5 s
 dotnet test MyApp.sln                                     # incl. 1M-spin RTP test, ~13 s
 ```
@@ -56,4 +64,14 @@ dotnet test MyApp.sln                                     # incl. 1M-spin RTP te
   exceed Windows' 260-char path limit in deep folders.
 - Sessions are in memory: restarting the server resets everyone to 1000 credits.
 - `dotnet publish` of MyApp is broken (see REVIEW.md H1). `dotnet run` works.
+- Testing seams: `IRandomSource` (inject a fake RNG), `SlotEngine.Apply(...)` (internal, hand-built grids incl.
+  respin grids), `TimeProvider` in `SessionStore` (use `FakeTimeProvider`). Never add debug/cheat endpoints to
+  the server; force game states only in tests or with a temporary page-side stub that isn't committed.
+- All API errors are `{ "error": "..." }` JSON (400/429/500). Cookie Secure, HSTS and HTTPS redirect apply only
+  outside Development, so `http://localhost:5080` keeps working.
+- Rate limit (per IP, token bucket 20 burst / 10 per s) applies to /state, /spin, /reset. Scripted spin loops
+  need ~120 ms between calls.
+- Checking the UI in the browser pane: a hidden pane throttles animations and tool screenshots can lag, so reels
+  may look half a cell off mid-bounce. Judge alignment from the settled DOM (strip transform 0) and ask the user
+  to judge how animations feel.
 - New PC setup: install .NET 10 SDK (`winget install Microsoft.DotNet.SDK.10`) and Git (`winget install Git.Git`).
