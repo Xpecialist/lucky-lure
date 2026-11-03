@@ -103,10 +103,32 @@ Newest entries at the bottom. Each entry: what changed, why, and the commit.
   browser (message + 2 HELD tags, final grid correct). One mid-sequence screenshot showed reels half a cell off,
   taken while the browser pane was hidden (throttled animations); settled state was aligned. Worth a human look.
 
+### Commits
+- `7833d79` nudge respin.
+
+### Parallel batch: bonus-flow bugs + Phase 1 visuals (frontend) and T1/S3/S4 (backend)
+- Work split with a **git worktree**: backend builder in `Desktop\LuckyLure-backend` on branch
+  `backend/t1-s3-s4` (own bin/obj, so no build locks), frontend builder in the main folder. Merged with
+  `--no-ff` as `b07aff5`, no conflicts.
+- Frontend `5504c54` — user-reported bugs: boats now celebrate ~1.3 s before the FREE SPINS overlay; page no
+  longer jumps (banner inserted above the reels pushed them down — header/banner now share one fixed slot);
+  overlays (free spins, retrigger "now ×2", feature complete) never auto-dismiss, wait for click/Space/Enter
+  (`SkipGate` = TaskCompletionSource wait); retrigger overlay after the spin finishes. C5, C7 fixed.
+  Phase 1: SVG sprite art for all 12 symbols (`SymbolArt.cs`, `SymbolSprite.razor`), payline glow trace, BIG WIN
+  (≥ 10× bet, roll-up counter) / MEGA WIN (≥ 50×, coin+bubble shower), motion blur, stop bounce, SPIN glow;
+  reduced-motion respected.
+- Backend `5e2ba34` — T1: `IRandomSource`/`CryptoRandomSource` injected into `SlotEngine`, `internal Apply(...)`
+  grid seam + `InternalsVisibleTo`, `TimeProvider` in `SessionStore`. S3: `{error}` JSON for every 400/500.
+  S4: Secure cookie outside Dev, forwarded headers, HSTS + HTTPS redirect outside Dev. Sim gained `fast` mode.
+- Coordinator verified after merge: build clean, **92/92 tests pass, 0 skipped**; live: new art renders (life ring
+  visible), spin works, `{"bet":"abc"}` → 400 `{"error":"Invalid request body."}`, GET /api/spin → 405,
+  no console errors. Animation smoothness not judged from tool screenshots (they can lag) — needs a human look.
+- Note: a stray earlier draft of the sim change appeared in the main folder; dropped in favour of the branch.
+
 ## Where we left off
-- Next candidates (user decides): backend T1 test seams, S3 error bodies, S4 cookie hardening;
-  frontend batch (H1 publish fix, C5 bet text, C1–C3/C7 client races); tester pass for the nudge respin
-  (deterministic tests need T1).
+- Next (user decides): Phase 3 sound, Phase 2 excitement moments (scatter tease, fish-collect animation,
+  free-spins mood, multiplier ladder); tester pass using the new T1 seams; remaining frontend items
+  H1 (publish), C1, C3, C4, C8; Q1–Q3. Title icon is still an emoji.
   After T1: tester adds the blocked deterministic tests.
 - Later: SVG symbol art, persistent sessions (database), deploy.
 
@@ -124,3 +146,5 @@ Newest entries at the bottom. Each entry: what changed, why, and the commit.
 11. Testing: xUnit Fact/Theory, invariant testing, WebApplicationFactory + IClassFixture, traits, Skip as to-do.
 12. Route groups, endpoint filters vs middleware, rate limiting (token bucket, 429), route constraints, 404 vs 405.
 13. Contract-first parallel work, pattern matching (`is { } x`), collection expressions, record equality in tests.
+14. DI seams / Dependency Inversion, TimeProvider + FakeTimeProvider, InternalsVisibleTo, global exception
+    handling, forwarded headers, HSTS. (Plus git worktrees and merging.)
