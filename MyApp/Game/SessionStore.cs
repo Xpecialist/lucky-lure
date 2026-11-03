@@ -3,7 +3,8 @@ using System.Security.Cryptography;
 
 namespace MyApp.Game;
 
-public sealed class SessionStore
+/// <summary>In-memory player sessions. Time comes from <see cref="TimeProvider"/> so expiry is testable.</summary>
+public sealed class SessionStore(TimeProvider time)
 {
     private static readonly TimeSpan IdleLimit = TimeSpan.FromHours(24);
     // Sessions that never spun (bots, one-off visits) go much sooner.
@@ -12,14 +13,14 @@ public sealed class SessionStore
     private static readonly TimeSpan PruneInterval = TimeSpan.FromMinutes(10);
 
     private readonly ConcurrentDictionary<string, GameSession> _sessions = new();
-    private long _lastPruneTicks = DateTime.UtcNow.Ticks;
+    private long _lastPruneTicks = time.GetUtcNow().UtcTicks;
 
     public GameSession? Get(string? id)
     {
         if (string.IsNullOrEmpty(id) || !_sessions.TryGetValue(id, out var session))
             return null;
 
-        session.LastSeenUtc = DateTime.UtcNow;
+        session.LastSeenUtc = Now;
         return session;
     }
 
@@ -29,15 +30,17 @@ public sealed class SessionStore
         while (true)
         {
             var id = Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
-            var session = new GameSession(id);
+            var session = new GameSession(id) { LastSeenUtc = Now };
             if (_sessions.TryAdd(id, session))
                 return session;
         }
     }
 
+    private DateTime Now => time.GetUtcNow().UtcDateTime;
+
     private void PruneIfDue()
     {
-        var now = DateTime.UtcNow;
+        var now = Now;
         var last = Interlocked.Read(ref _lastPruneTicks);
         if (now.Ticks - last < PruneInterval.Ticks)
             return;

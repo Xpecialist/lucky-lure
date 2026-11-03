@@ -14,7 +14,7 @@ public class StatisticalTests(ITestOutputHelper output)
     [Fact]
     public void Rtp_And_TriggerRate_AreInSaneBands()
     {
-        var engine = new SlotEngine();
+        var engine = new SlotEngine(new CryptoRandomSource());
         var session = Play.RichSession(1_000_000_000m);
         decimal staked = 0, won = 0;
         var features = 0;

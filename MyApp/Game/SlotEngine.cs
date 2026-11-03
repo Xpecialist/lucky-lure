@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using MyApp.Shared;
 
 namespace MyApp.Game;
@@ -10,8 +9,10 @@ namespace MyApp.Game;
 //   avg feature win 26.0x bet (avg 12.9 free spins); retrigger in 18.0% of features,
 //   x3 reached in 5.3%, x10 in 1.8%; base hit frequency 20.7%.
 // Re-run the sim after changing any weight, pay or chance below.
-public sealed class SlotEngine
+public sealed class SlotEngine(IRandomSource rng)
 {
+    private readonly IRandomSource _rng = rng;
+
     public const decimal StartingBalance = 1000m;
 
     private const int Reels = 5;
@@ -119,7 +120,24 @@ public sealed class SlotEngine
         return null;
     }
 
-    public SpinResult Spin(GameSession s, decimal? bet)
+    public SpinResult Spin(GameSession s, decimal? bet) => Play(s, bet, Generate, Nudge);
+
+    /// <summary>
+    /// Test seam: plays a spin on hand-built grids instead of random ones. <paramref name="respinGrids"/> are used,
+    /// in order, for any nudge respins the rules call for. Everything else is the production code path.
+    /// </summary>
+    internal SpinResult Apply(GameSession s, decimal? bet, Cell[][] grid, params Cell[][][] respinGrids)
+    {
+        var next = 0;
+        return Play(s, bet,
+            (_, _) => grid,
+            (_, _, _) => next < respinGrids.Length
+                ? respinGrids[next++]
+                : throw new InvalidOperationException("The rules call for another respin, but no respin grid was supplied."));
+    }
+
+    private SpinResult Play(GameSession s, decimal? bet,
+        Func<bool, decimal, Cell[][]> generate, Func<Cell[][], int[], decimal, Cell[][]> nudge)
     {
         if (Validate(s, bet) is { } error)
             throw new InvalidOperationException(error);
@@ -140,7 +158,7 @@ public sealed class SlotEngine
             s.Balance -= stake;
         }
 
-        var grid = Generate(free, stake);
+        var grid = generate(free, stake);
         var lineWins = EvaluateLines(grid, stake);
         var lineTotal = lineWins.Sum(w => w.Win);
 
@@ -149,7 +167,7 @@ public sealed class SlotEngine
         var final = grid;
         while (!free && respins.Count < MaxRespins && NudgeReels(final) is { } held)
         {
-            final = Nudge(final, held, stake);
+            final = nudge(final, held, stake);
             var wins = EvaluateLines(final, stake);
             lineTotal += wins.Sum(w => w.Win);
             respins.Add(new RespinStep(final, held, wins));
@@ -218,7 +236,7 @@ public sealed class SlotEngine
         return Snapshot(s);
     }
 
-    private static Cell[][] Generate(bool free, decimal stake)
+    private Cell[][] Generate(bool free, decimal stake)
     {
         var grid = new Cell[Reels][];
         for (var r = 0; r < Reels; r++)
@@ -226,11 +244,11 @@ public sealed class SlotEngine
         return grid;
     }
 
-    private static Cell[] GenerateReel(bool free, decimal stake)
+    private Cell[] GenerateReel(bool free, decimal stake)
     {
         var reel = new Cell[Rows];
-        var scatterRow = !free && RandomNumberGenerator.GetInt32(1000) < ScatterChancePerMille
-            ? RandomNumberGenerator.GetInt32(Rows)
+        var scatterRow = !free && _rng.Next(1000) < ScatterChancePerMille
+            ? _rng.Next(Rows)
             : -1;
         for (var row = 0; row < Rows; row++)
         {
@@ -260,7 +278,7 @@ public sealed class SlotEngine
     }
 
     /// <summary>Held reels shift down one row with a new non-Scatter symbol on top; the others respin normally.</summary>
-    private static Cell[][] Nudge(Cell[][] grid, int[] held, decimal stake)
+    private Cell[][] Nudge(Cell[][] grid, int[] held, decimal stake)
     {
         var next = new Cell[Reels][];
         for (var r = 0; r < Reels; r++)
@@ -272,7 +290,7 @@ public sealed class SlotEngine
         return next;
     }
 
-    private static Cell MakeCell(Symbol symbol, decimal stake) =>
+    private Cell MakeCell(Symbol symbol, decimal stake) =>
         symbol == Symbol.Fish
             ? new Cell(symbol, Round(Pick(FishValues) * stake))
             : new Cell(symbol, null);
@@ -332,13 +350,13 @@ public sealed class SlotEngine
 
     private static decimal Pay(Symbol symbol, int count) => Paytable[symbol][count - 3];
 
-    private static T Pick<T>((T Item, int Weight)[] table)
+    private T Pick<T>((T Item, int Weight)[] table)
     {
         var total = 0;
         foreach (var entry in table)
             total += entry.Weight;
 
-        var roll = RandomNumberGenerator.GetInt32(total);
+        var roll = _rng.Next(total);
         foreach (var (item, weight) in table)
         {
             if (roll < weight)
