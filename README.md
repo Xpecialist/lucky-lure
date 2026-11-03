@@ -7,6 +7,7 @@ A fishing-themed slot machine built end to end in .NET: an ASP.NET Core API runs
 - 5×3 reels, 10 paylines, wilds and scatters
 - Free spins: fish symbols carry cash values, fisherman wilds collect them
 - Retriggers every 4 fishermen with rising multipliers (×2, ×3, ×10)
+- Net cast: in free spins, a fisherman with no fish to catch may cast a net that turns 3 (or 5 with a Big Net) symbols into fish
 - Nudge respin: land 2 boats in the top or middle rows and their reels are held and nudged down while the rest respin, for another shot at the bonus
 - Server-authoritative: every outcome, balance and feature state is decided on the server using a cryptographically secure RNG
 - Instant-feel spins: the reels start the moment you click and land on the server's result when it arrives

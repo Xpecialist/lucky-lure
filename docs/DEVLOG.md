@@ -125,10 +125,34 @@ Newest entries at the bottom. Each entry: what changed, why, and the commit.
   no console errors. Animation smoothness not judged from tool screenshots (they can lag) — needs a human look.
 - Note: a stray earlier draft of the sim change appeared in the main folder; dropped in favour of the branch.
 
+### Commits
+- `5504c54` frontend bugs + Phase 1, `5e2ba34` backend T1/S3/S4, merged `b07aff5`; `5666ddb` CLAUDE.md workflow.
+
+### Net cast (new feature, user design) + "scatter looks wild" report
+- Rule (free spins only): landed grid has ≥ 1 Wild and no Fish → 45% chance of a net cast; Small turns 3 non-Wild
+  cells into Fish, Big turns 5 (Big = 1 in 5 casts). Fish values from their own net-cast weights. All wins of that
+  spin evaluated on `net.grid`; top-level `grid` is the landed grid. Defaults chosen by coordinator ("big chance",
+  "values by RTP" left to tuning by the user).
+- Spec-first again: contract + `NetCast`/`NetSize` in Models.cs + `Net: null` placeholder in the engine committed
+  on main (`5a0cc17`) so main kept building while the backend worked in the worktree (branch `backend/net-cast`).
+- Backend `5d15a74`: `NetPlan` (decide) + `CastNet` (apply), `Apply(..., NetPlan?)` test seam. Normal fish weights
+  cheapened (mean 4.65× → 3.30×) to make room; net weights mean 2.84×. Sim 20M: 1 in 50.1, RTP 95.43%, 6.26% of
+  free spins qualify, 45% of those cast, avg collect per cast 15.6× bet, net casts = 23% of feature win.
+- User report "scatter works as a wild": engine was correct; the Phase 1 payline glow was drawn across all 5 reels
+  of the line (through a Boat after a 3-of-a-kind). Fixed in the client (glow stops at the last winning cell);
+  backend added fixed-grid tests (A-A-S-A-A, S-A-A-A, A-A-A-S-A, W-S-A-A-A) + invariant "no line win contains a
+  Scatter".
+- Frontend `a480b50`: `Home.NetCast.cs` + `NetCastFx` (net sweep, splash, NET CAST!/BIG NET! banner, light shake on
+  Big), cells pop into fish one by one, then the normal win flow. Skippable, reduced-motion aware.
+- Merged `24f3293`. Coordinator verified: build clean, 101/101 tests, sim 2M (1 in 50.1, RTP 94.98%), real net cast
+  from the live server via API (Small, 1 Wild, 0 → 3 fish, collect 9.00), page loads without errors. Visual feel
+  of the net animation still needs a human look (agents' browser pane was hidden).
+
 ## Where we left off
-- Next (user decides): Phase 3 sound, Phase 2 excitement moments (scatter tease, fish-collect animation,
-  free-spins mood, multiplier ladder); tester pass using the new T1 seams; remaining frontend items
-  H1 (publish), C1, C3, C4, C8; Q1–Q3. Title icon is still an emoji.
+- Next (user decides): Phase 3 sound, Phase 2 excitement moments (scatter tease, fish values flying to the
+  fisherman, free-spins mood, multiplier ladder); tester pass using the T1 seams; remaining frontend items
+  H1 (publish), C1, C3, C4, C8; Q1–Q3. Title icon is still an emoji. Backend worktree `..\LuckyLure-backend`
+  can be reused for the next backend branch.
   After T1: tester adds the blocked deterministic tests.
 - Later: SVG symbol art, persistent sessions (database), deploy.
 
@@ -148,3 +172,5 @@ Newest entries at the bottom. Each entry: what changed, why, and the commit.
 13. Contract-first parallel work, pattern matching (`is { } x`), collection expressions, record equality in tests.
 14. DI seams / Dependency Inversion, TimeProvider + FakeTimeProvider, InternalsVisibleTo, global exception
     handling, forwarded headers, HSTS. (Plus git worktrees and merging.)
+15. Delegates as strategy seams, decide-then-apply (NetPlan/CastNet), partial Fisher–Yates sampling,
+    Blazor `@key` diffing and in-place updates.
