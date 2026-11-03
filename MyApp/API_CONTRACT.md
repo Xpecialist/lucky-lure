@@ -81,6 +81,7 @@ A rescue for a fisherman with nothing to catch.
   **transformed** grid. Wild count and the retrigger meter are unchanged by the transform (no new Wilds).
 - **Balance:** overall RTP stays 94–97% and the trigger rate ~1 in 50; other free-spin knobs (weights, fish value
   weights) may be retuned to make room. Measured with `tools/LuckyLure.Sim`.
+  Tuned values: 45% chance on a qualifying spin (about 6% of free spins qualify), Big = 1 in 5 casts.
 
 ## Endpoints
 

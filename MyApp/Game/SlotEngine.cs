@@ -3,11 +3,13 @@ using MyApp.Shared;
 namespace MyApp.Game;
 
 // Economy (tuned with tools/LuckyLure.Sim, 20,000,000 paid spins at bet 1, features played out):
-//   free-spin trigger  1 in 50.2 paid spins (54.6% of triggers come via a nudge respin)
-//   nudge respins 3.95 per 100 paid spins; 32.5% of nudge sequences end in a trigger
-//   RTP 95.35%  = base lines 38.12% (incl. respin lines) + scatter pays 5.52% + feature 51.71% (54.2% of RTP)
-//   avg feature win 26.0x bet (avg 12.9 free spins); retrigger in 18.0% of features,
+//   free-spin trigger  1 in 50.1 paid spins (54.6% of triggers come via a nudge respin)
+//   nudge respins 3.96 per 100 paid spins; 32.5% of nudge sequences end in a trigger
+//   RTP 95.43%  = base lines 38.15% (incl. respin lines) + scatter pays 5.52% + feature 51.76% (54.2% of RTP)
+//   avg feature win 25.9x bet (avg 12.9 free spins); retrigger in 18.0% of features,
 //   x3 reached in 5.3%, x10 in 1.8%; base hit frequency 20.7%.
+//   net cast: 6.3% of free spins qualify, 45.0% of those cast (Big = 20.0% of casts),
+//   avg collect 15.6x bet per cast; net-cast spins are 23.2% of feature win (12.0% RTP).
 // Re-run the sim after changing any weight, pay or chance below.
 public sealed class SlotEngine(IRandomSource rng)
 {
@@ -85,7 +87,18 @@ public sealed class SlotEngine(IRandomSource rng)
     // Fish value multipliers (× total bet).
     private static readonly (int Item, int Weight)[] FishValues =
     [
-        (2, 600), (5, 250), (10, 90), (15, 30), (20, 15), (25, 10), (50, 4), (100, 1),
+        (2, 760), (5, 180), (10, 40), (15, 10), (20, 5), (25, 3), (50, 1), (100, 1),
+    ];
+
+    // Net cast (free spins): chance when a landed grid has a Wild and no Fish, share of Big nets, cell counts,
+    // and the values of the Fish the net brings in (× total bet).
+    private const int NetChancePerMille = 450;
+    private const int BigNetPerMille = 200;
+    private const int SmallNetCells = 3;
+    private const int BigNetCells = 5;
+    private static readonly (int Item, int Weight)[] NetFishValues =
+    [
+        (2, 850), (5, 110), (10, 30), (15, 5), (20, 2), (25, 1), (50, 1), (100, 1),
     ];
 
     private readonly GameInfo _info = new(
@@ -120,24 +133,33 @@ public sealed class SlotEngine(IRandomSource rng)
         return null;
     }
 
-    public SpinResult Spin(GameSession s, decimal? bet) => Play(s, bet, Generate, Nudge);
+    public SpinResult Spin(GameSession s, decimal? bet) => Play(s, bet, Generate, Nudge, RandomNet);
 
     /// <summary>
     /// Test seam: plays a spin on hand-built grids instead of random ones. <paramref name="respinGrids"/> are used,
-    /// in order, for any nudge respins the rules call for. Everything else is the production code path.
+    /// in order, for any nudge respins the rules call for. No net cast happens. Everything else is the production path.
     /// </summary>
-    internal SpinResult Apply(GameSession s, decimal? bet, Cell[][] grid, params Cell[][][] respinGrids)
+    internal SpinResult Apply(GameSession s, decimal? bet, Cell[][] grid, params Cell[][][] respinGrids) =>
+        Apply(s, bet, grid, net: null, respinGrids);
+
+    /// <summary>
+    /// Test seam with a chosen net cast outcome: <paramref name="net"/> is used if the landed grid qualifies
+    /// (free spin, ≥ 1 Wild, no Fish); null forces "no net cast".
+    /// </summary>
+    internal SpinResult Apply(GameSession s, decimal? bet, Cell[][] grid, NetPlan? net, params Cell[][][] respinGrids)
     {
         var next = 0;
         return Play(s, bet,
             (_, _) => grid,
             (_, _, _) => next < respinGrids.Length
                 ? respinGrids[next++]
-                : throw new InvalidOperationException("The rules call for another respin, but no respin grid was supplied."));
+                : throw new InvalidOperationException("The rules call for another respin, but no respin grid was supplied."),
+            _ => net);
     }
 
     private SpinResult Play(GameSession s, decimal? bet,
-        Func<bool, decimal, Cell[][]> generate, Func<Cell[][], int[], decimal, Cell[][]> nudge)
+        Func<bool, decimal, Cell[][]> generate, Func<Cell[][], int[], decimal, Cell[][]> nudge,
+        Func<Cell[][], NetPlan?> planNet)
     {
         if (Validate(s, bet) is { } error)
             throw new InvalidOperationException(error);
@@ -159,7 +181,18 @@ public sealed class SlotEngine(IRandomSource rng)
         }
 
         var grid = generate(free, stake);
-        var lineWins = EvaluateLines(grid, stake);
+
+        // Net cast (free spins only): a Wild with no Fish to catch may turn 3 or 5 non-Wild cells into Fish.
+        // All of this spin's wins are then scored on the transformed grid; the landed grid stays the top-level one.
+        NetCast? net = null;
+        var scored = grid;
+        if (free && NetQualifies(grid) && planNet(grid) is { } plan)
+        {
+            scored = CastNet(grid, plan, stake);
+            net = new NetCast(plan.Size, plan.Positions, scored);
+        }
+
+        var lineWins = EvaluateLines(scored, stake);
         var lineTotal = lineWins.Sum(w => w.Win);
 
         // Nudge respins (base game only): line wins pay on every grid, scatters count on the final one.
@@ -173,7 +206,7 @@ public sealed class SlotEngine(IRandomSource rng)
             respins.Add(new RespinStep(final, held, wins));
         }
 
-        var cells = grid.SelectMany(reel => reel).ToList();
+        var cells = scored.SelectMany(reel => reel).ToList(); // the net cast never adds or removes Wilds
         var scatterCount = final.Sum(reel => reel.Count(c => c.Symbol == Symbol.Scatter));
         var wildCount = cells.Count(c => c.Symbol == Symbol.Wild);
 
@@ -226,7 +259,58 @@ public sealed class SlotEngine(IRandomSource rng)
         return new SpinResult(
             grid, Round(stake), free, lineWins,
             scatterCount, scatterWin, wildCount, collectWin, totalWin,
-            freeSpinsAwarded, retriggered, featureEnded, respins, Net: null, Snapshot(s));
+            freeSpinsAwarded, retriggered, featureEnded, respins, net, Snapshot(s));
+    }
+
+    private static bool NetQualifies(Cell[][] grid)
+    {
+        var cells = grid.SelectMany(reel => reel).ToList();
+        return cells.Any(c => c.Symbol == Symbol.Wild) && cells.All(c => c.Symbol != Symbol.Fish);
+    }
+
+    /// <summary>Production net cast roll: chance, size, distinct non-Wild cells, values from the net-cast weights.</summary>
+    private NetPlan? RandomNet(Cell[][] grid)
+    {
+        if (_rng.Next(1000) >= NetChancePerMille)
+            return null;
+        var size = _rng.Next(1000) < BigNetPerMille ? NetSize.Big : NetSize.Small;
+        var count = size == NetSize.Big ? BigNetCells : SmallNetCells;
+
+        List<int[]> candidates = [];
+        for (var r = 0; r < Reels; r++)
+            for (var row = 0; row < Rows; row++)
+                if (grid[r][row].Symbol != Symbol.Wild)
+                    candidates.Add([r, row]);
+        if (candidates.Count < count)
+            return null;
+
+        // Partial Fisher-Yates: the first `count` entries become a uniform random distinct sample.
+        for (var i = 0; i < count; i++)
+        {
+            var j = i + _rng.Next(candidates.Count - i);
+            (candidates[i], candidates[j]) = (candidates[j], candidates[i]);
+        }
+        int[][] positions = [.. candidates.Take(count).OrderBy(p => p[0]).ThenBy(p => p[1])];
+        int[] values = [.. positions.Select(_ => Pick(NetFishValues))];
+        return new NetPlan(size, positions, values);
+    }
+
+    /// <summary>Copy of the grid with the planned cells turned into Fish; every other cell is untouched.</summary>
+    private static Cell[][] CastNet(Cell[][] grid, NetPlan plan, decimal stake)
+    {
+        var expected = plan.Size == NetSize.Big ? BigNetCells : SmallNetCells;
+        if (plan.Positions.Length != expected || plan.Values.Length != expected)
+            throw new ArgumentException($"A {plan.Size} net needs exactly {expected} positions and values.", nameof(plan));
+
+        var next = grid.Select(reel => (Cell[])reel.Clone()).ToArray();
+        for (var i = 0; i < plan.Positions.Length; i++)
+        {
+            var (r, row) = (plan.Positions[i][0], plan.Positions[i][1]);
+            if (next[r][row].Symbol == Symbol.Wild)
+                throw new ArgumentException("A net cast never transforms a Wild.", nameof(plan));
+            next[r][row] = new Cell(Symbol.Fish, Round(plan.Values[i] * stake));
+        }
+        return next;
     }
 
     public GameState Reset(GameSession s)

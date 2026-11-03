@@ -33,11 +33,27 @@ public class SpinInvariantTests
     public void FreeSpinGrids_FollowSymbolRules(decimal bet)
     {
         var session = Play.InFeature(freeSpins: 1_000_000, freeSpinBet: bet);
+        var nets = 0;
 
         foreach (var (_, r) in Play.Spins(_engine, session, bet, SpinsPerBet))
         {
             Assert.True(r.WasFreeSpin);
-            SpinChecks.Grid(r);
+            SpinChecks.Grid(r); // includes the net cast rule
+            if (r.Net is not null) nets++;
+        }
+
+        // ~40 expected per 1,500 free spins; zero would mean the net invariants were never exercised.
+        Assert.True(nets > 0, "No net cast in the sample.");
+    }
+
+    [Fact]
+    public void BaseGame_NeverCastsANet()
+    {
+        var session = Play.RichSession();
+        for (var i = 0; i < SpinsPerBet; i++)
+        {
+            session.ClearFeature();
+            Assert.Null(_engine.Spin(session, 1m).Net);
         }
     }
 

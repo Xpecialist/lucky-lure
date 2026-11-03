@@ -51,7 +51,8 @@ public class FeatureTests
 
         foreach (var (before, r) in Play.Spins(_engine, session, 1m, 5_000))
         {
-            var fishSum = Play.Cells(r).Where(c => c.Symbol == Symbol.Fish).Sum(c => c.Value!.Value);
+            // Scored on the net-cast grid when a net was cast.
+            var fishSum = (r.Net?.Grid ?? r.Grid).SelectMany(reel => reel).Where(c => c.Symbol == Symbol.Fish).Sum(c => c.Value!.Value);
             if (r.WildCount == 0)
             {
                 Assert.Equal(0m, r.CollectWin);

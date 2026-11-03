@@ -4,6 +4,7 @@
 // Default RNG is the production CryptoRandomSource; "fast" uses Random.Shared (same distribution, quicker).
 using System.Diagnostics;
 using MyApp.Game;
+using MyApp.Shared;
 
 var spins = args.Length > 0 ? long.Parse(args[0]) : 2_000_000;
 var threads = args.Length > 1 ? int.Parse(args[1]) : Environment.ProcessorCount;
@@ -35,6 +36,10 @@ Console.WriteLine($"  feature           : {Pct(total.FeatureWin / staked)}  (sha
 Console.WriteLine($"Avg feature win     : {total.FeatureWin / Math.Max(1, total.Features):0.00}x bet  (avg {(double)total.FreeSpins / Math.Max(1, total.Features):0.0} free spins)");
 Console.WriteLine($"Features w/ retrig. : {Ratio(total.Retriggered, total.Features)}   reach x3: {Ratio(total.ReachedX3, total.Features)}   reach x10: {Ratio(total.ReachedX10, total.Features)}");
 Console.WriteLine($"Features >= 100x    : {Ratio(total.Feature100, total.Features)}");
+var casts = total.NetSmall + total.NetBig;
+Console.WriteLine($"Net cast qualifying : {Ratio(total.NetQualifying, total.FreeSpins)} of free spins (Wild, no Fish)");
+Console.WriteLine($"  cast              : {Ratio(casts, total.NetQualifying)} of those  (Small {Ratio(total.NetSmall, total.NetQualifying)}, Big {Ratio(total.NetBig, total.NetQualifying)}; Big = {Ratio(total.NetBig, casts)} of casts)");
+Console.WriteLine($"  avg collect / cast: {total.NetCollect / Math.Max(1, casts):0.00}x bet   net-cast spins = {Pct(total.NetSpinWin / Math.Max(1, total.FeatureWin))} of feature win ({Pct(total.NetSpinWin / staked)} RTP)");
 Console.WriteLine($"Max feature win     : {total.MaxFeatureWin:0.00}x bet");
 Console.WriteLine($"Max single spin win : {total.MaxSpinWin:0.00}x bet");
 Console.WriteLine($"Hit frequency (base): {Ratio(total.BaseHits, total.PaidSpins)}");
@@ -67,6 +72,16 @@ static Stats Run(SlotEngine engine, long quota)
             st.FreeSpins++;
             st.FeatureWin += f.TotalWin;
             st.MaxSpinWin = Math.Max(st.MaxSpinWin, f.TotalWin);
+
+            var landed = f.Grid.SelectMany(reel => reel).ToList();
+            if (landed.Any(c => c.Symbol == Symbol.Wild) && landed.All(c => c.Symbol != Symbol.Fish))
+                st.NetQualifying++;
+            if (f.Net is { } net)
+            {
+                if (net.Size == NetSize.Big) st.NetBig++; else st.NetSmall++;
+                st.NetCollect += f.CollectWin;
+                st.NetSpinWin += f.TotalWin;
+            }
         }
         if (s.Retriggers >= 1) st.Retriggered++;
         if (s.Retriggers >= 2) st.ReachedX3++;
@@ -86,14 +101,17 @@ sealed class SharedRandomSource : IRandomSource
 sealed class Stats
 {
     public long PaidSpins, FreeSpins, Respins, RespinSequences, RespinTriggers, Features, Retriggered, ReachedX3, ReachedX10, Feature100, BaseHits;
-    public decimal BaseLineWin, ScatterWin, FeatureWin, MaxSpinWin, MaxFeatureWin;
+    public long NetQualifying, NetSmall, NetBig;
+    public decimal BaseLineWin, ScatterWin, FeatureWin, MaxSpinWin, MaxFeatureWin, NetCollect, NetSpinWin;
 
     public Stats Add(Stats o) => new()
     {
         PaidSpins = PaidSpins + o.PaidSpins, Respins = Respins + o.Respins, RespinSequences = RespinSequences + o.RespinSequences, RespinTriggers = RespinTriggers + o.RespinTriggers, FreeSpins = FreeSpins + o.FreeSpins, Features = Features + o.Features,
         Retriggered = Retriggered + o.Retriggered, ReachedX3 = ReachedX3 + o.ReachedX3, ReachedX10 = ReachedX10 + o.ReachedX10,
         Feature100 = Feature100 + o.Feature100, BaseHits = BaseHits + o.BaseHits,
+        NetQualifying = NetQualifying + o.NetQualifying, NetSmall = NetSmall + o.NetSmall, NetBig = NetBig + o.NetBig,
         BaseLineWin = BaseLineWin + o.BaseLineWin, ScatterWin = ScatterWin + o.ScatterWin, FeatureWin = FeatureWin + o.FeatureWin,
+        NetCollect = NetCollect + o.NetCollect, NetSpinWin = NetSpinWin + o.NetSpinWin,
         MaxSpinWin = Math.Max(MaxSpinWin, o.MaxSpinWin), MaxFeatureWin = Math.Max(MaxFeatureWin, o.MaxFeatureWin),
     };
 }
