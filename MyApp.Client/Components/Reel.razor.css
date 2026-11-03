@@ -19,20 +19,23 @@
     background: linear-gradient(180deg, rgba(0,30,60,.35), transparent 18%, transparent 82%, rgba(0,30,60,.35));
 }
 
+
 /* ---------- strips (compositor-only transforms) ---------- */
 .strip {
     will-change: transform;
     backface-visibility: hidden;
 }
 
-/* Cells are rendered twice; scrolling one half (-50% -> 0) loops seamlessly. */
+/* Cells are rendered twice; scrolling one half (-50% -> 0) loops seamlessly.
+   The vertical-only blur (SVG filter in the symbol sprite) reads as motion blur. */
 .strip.looping {
     animation: reel-loop .34s linear infinite;
+    filter: url(#reel-blur);
 }
 
-/* [final x3 + filler x3]: start on the fillers, settle on the result with a small bounce. */
+/* [final x3 + filler x3]: start on the fillers, overshoot, settle with a bounce (stop "thunk"). */
 .strip.landing {
-    animation: reel-land .3s both;
+    animation: reel-land .36s both;
 }
 
 /* Nudge: [new x3 + dropped x1] starts on the old view (-25%) and slides down exactly one cell. */
@@ -40,12 +43,23 @@
     animation: reel-nudge .3s both;
 }
 
+@keyframes reel-loop {
+    from { transform: translate3d(0, -50%, 0); }
+    to   { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes reel-land {
+    0%   { transform: translate3d(0, -50%, 0); animation-timing-function: cubic-bezier(.3, .6, .55, 1); }
+    62%  { transform: translate3d(0, 4%, 0); animation-timing-function: ease-in-out; }
+    82%  { transform: translate3d(0, -1.2%, 0); animation-timing-function: ease-in-out; }
+    100% { transform: translate3d(0, 0, 0); }
+}
+
 @keyframes reel-nudge {
     0%   { transform: translate3d(0, -25%, 0); animation-timing-function: cubic-bezier(.35, .1, .4, 1); }
     80%  { transform: translate3d(0, 1.5%, 0); animation-timing-function: ease-in-out; }
     100% { transform: translate3d(0, 0, 0); }
 }
-
 /* ---------- held reel (nudge respin) ---------- */
 .held-frame {
     position: absolute;
@@ -72,16 +86,6 @@
     line-height: 1.2;
 }
 
-@keyframes reel-loop {
-    from { transform: translate3d(0, -50%, 0); }
-    to   { transform: translate3d(0, 0, 0); }
-}
-
-@keyframes reel-land {
-    0%   { transform: translate3d(0, -50%, 0); animation-timing-function: cubic-bezier(.3, .55, .5, 1); }
-    72%  { transform: translate3d(0, 2.5%, 0); animation-timing-function: ease-in-out; }
-    100% { transform: translate3d(0, 0, 0); }
-}
 
 /* ---------- cells & symbols ---------- */
 .cell {
@@ -95,25 +99,15 @@
     transition: opacity .25s ease;
 }
 
-.glyph {
-    font-size: calc(var(--cell) * .55);
-    line-height: 1;
-    transform: translateY(-4%);
+.art {
+    width: 80%;
+    height: 80%;
+    overflow: visible;
+    filter: drop-shadow(0 2px 1px rgba(0, 30, 60, .35));
 }
 
-.cell.card .glyph {
-    font-family: Georgia, "Times New Roman", serif;
-    font-weight: 900;
-    font-size: calc(var(--cell) * .5);
-    -webkit-text-stroke: 1px rgba(0,0,0,.35);
-    text-shadow: 0 2px 0 rgba(0,0,0,.25), 0 0 6px rgba(255,255,255,.7);
-}
-
-.sym-ten .glyph   { color: #1f9e8a; font-size: calc(var(--cell) * .42); letter-spacing: -2px; }
-.sym-jack .glyph  { color: #2f6fd6; }
-.sym-queen .glyph { color: #b5389e; }
-.sym-king .glyph  { color: #d33b2c; }
-.sym-ace .glyph   { color: #d99a0b; }
+/* Symbols with a badge/tag underneath sit a little higher and smaller. */
+.sym-fish .art, .sym-wild .art, .sym-scatter .art { width: 74%; height: 74%; transform: translateY(-11%); }
 
 .cell .val {
     position: absolute;
@@ -130,8 +124,6 @@
     white-space: nowrap;
     line-height: 1.25;
 }
-
-.sym-fish .glyph { transform: translateY(-14%); }
 
 .cell .tag {
     position: absolute;
@@ -150,28 +142,63 @@
 
 .sym-wild { background: radial-gradient(circle, rgba(80, 220, 140, .45), transparent 70%); }
 .sym-wild .tag { background: #138a4c; border: 1px solid #0b5a31; }
-.sym-wild .glyph, .sym-scatter .glyph { transform: translateY(-12%); }
 .sym-scatter { background: radial-gradient(circle, rgba(255, 120, 90, .4), transparent 70%); }
 .sym-scatter .tag { background: #c8362a; border: 1px solid #7e1f17; }
 
 /* ---------- win highlighting ---------- */
-.reel.dim .cell:not(.win) { opacity: .4; }
+.reel.dim .cell:not(.win):not(.boat) { opacity: .4; }
+
+.cell.win, .cell.boat {
+    z-index: 1;
+    border-radius: 6px;
+}
 
 .cell.win {
-    z-index: 1;
     box-shadow: inset 0 0 0 3px var(--gold), inset 0 0 14px rgba(244, 200, 79, .9);
-    border-radius: 6px;
     animation: win-pulse .9s ease-in-out infinite alternate;
 }
+
+/* Winning symbols hop twice, then the cell keeps pulsing. */
+.cell.win .art { animation: win-bounce .5s ease-out 2; }
+.sym-fish.win .art, .sym-wild.win .art, .sym-scatter.win .art { animation-name: win-bounce-raised; }
+
+/* Celebrating boats: strong glow + rocking on the waves. */
+.cell.boat {
+    box-shadow: inset 0 0 0 3px #ffe8a0, inset 0 0 22px rgba(255, 140, 90, .95), 0 0 18px rgba(255, 200, 90, .9);
+    animation: boat-glow .45s ease-in-out infinite alternate;
+}
+.cell.boat .art { animation: boat-rock .9s ease-in-out infinite; }
 
 @keyframes win-pulse {
     from { background-color: rgba(255, 232, 160, .15); }
     to   { background-color: rgba(255, 232, 160, .6); }
 }
 
+@keyframes win-bounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    40%      { transform: translateY(-9%) scale(1.08); }
+    70%      { transform: translateY(1%) scale(.98); }
+}
+
+@keyframes win-bounce-raised {
+    0%, 100% { transform: translateY(-11%) scale(1); }
+    40%      { transform: translateY(-20%) scale(1.08); }
+    70%      { transform: translateY(-10%) scale(.98); }
+}
+
+@keyframes boat-glow {
+    from { background-color: rgba(255, 200, 120, .25); }
+    to   { background-color: rgba(255, 236, 170, .75); }
+}
+
+@keyframes boat-rock {
+    0%, 100% { transform: translateY(-11%) rotate(-7deg) scale(1.05); }
+    50%      { transform: translateY(-16%) rotate(7deg) scale(1.12); }
+}
+
 @media (prefers-reduced-motion: reduce) {
     /* No scrolling: show the previous symbols faded while waiting, then the result. */
-    .strip.looping { animation: none; transform: translate3d(0, -50%, 0); opacity: .5; }
-    .strip.landing, .strip.nudging, .cell.win { animation: none; }
+    .strip.looping { animation: none; filter: none; transform: translate3d(0, -50%, 0); opacity: .5; }
+    .strip.landing, .strip.nudging, .cell.win, .cell.win .art, .cell.boat, .cell.boat .art { animation: none; }
     .cell { transition: none; }
 }

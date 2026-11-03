@@ -2,10 +2,14 @@ using MyApp.Shared;
 
 namespace MyApp.Client.Game;
 
-/// <summary>How a symbol looks. <see cref="Kind"/> is "card" (letters) or "pic" (emoji).</summary>
-public sealed record SymbolMeta(string Glyph, string Name, string Kind, string Css, string? Tag = null);
+/// <summary>How a symbol looks. <see cref="Css"/> is also the id of its artwork in <see cref="SymbolArt"/>.</summary>
+public sealed record SymbolMeta(string Name, string Css, string? Tag = null)
+{
+    /// <summary>Fragment reference for <c>&lt;use href="..."&gt;</c>.</summary>
+    public string Art => "#" + Css;
+}
 
-/// <summary>Symbol artwork plus random filler cells for the spinning strips.</summary>
+/// <summary>Symbol metadata plus random filler cells for the spinning strips.</summary>
 public static class Symbols
 {
     public const int Reels = 5;
@@ -13,20 +17,19 @@ public static class Symbols
 
     private static readonly Dictionary<Symbol, SymbolMeta> Meta = new()
     {
-        [Symbol.Ten] = new("10", "Ten", "card", "sym-ten"),
-        [Symbol.Jack] = new("J", "Jack", "card", "sym-jack"),
-        [Symbol.Queen] = new("Q", "Queen", "card", "sym-queen"),
-        [Symbol.King] = new("K", "King", "card", "sym-king"),
-        [Symbol.Ace] = new("A", "Ace", "card", "sym-ace"),
-        [Symbol.TackleBox] = new("\U0001F9F0", "Tackle Box", "pic", "sym-tacklebox"),
-        [Symbol.Dragonfly] = new("\U0001FAB0", "Dragonfly", "pic", "sym-dragonfly"),
-        [Symbol.Rod] = new("\U0001F3A3", "Rod", "pic", "sym-rod"),
-        [Symbol.Float] = new("\U0001F6DF", "Float", "pic", "sym-float"),
-        [Symbol.Fish] = new("\U0001F41F", "Fish", "pic", "sym-fish"),
-        [Symbol.Wild] = new("\U0001F9D4", "Fisherman", "pic", "sym-wild", "WILD"),
-        [Symbol.Scatter] = new("\U0001F6A4", "Boat", "pic", "sym-scatter", "SCATTER"),
+        [Symbol.Ten] = new("Ten", "sym-ten"),
+        [Symbol.Jack] = new("Jack", "sym-jack"),
+        [Symbol.Queen] = new("Queen", "sym-queen"),
+        [Symbol.King] = new("King", "sym-king"),
+        [Symbol.Ace] = new("Ace", "sym-ace"),
+        [Symbol.TackleBox] = new("Tackle Box", "sym-tacklebox"),
+        [Symbol.Dragonfly] = new("Dragonfly", "sym-dragonfly"),
+        [Symbol.Rod] = new("Rod", "sym-rod"),
+        [Symbol.Float] = new("Float", "sym-float"),
+        [Symbol.Fish] = new("Fish", "sym-fish"),
+        [Symbol.Wild] = new("Fisherman", "sym-wild", "WILD"),
+        [Symbol.Scatter] = new("Boat", "sym-scatter", "SCATTER"),
     };
-
     // Weighted filler pool for spinning strips and the starting grid.
     private static readonly Symbol[] Filler =
     [
@@ -38,11 +41,11 @@ public static class Symbols
     private static readonly int[] FishMultipliers = [2, 5, 10, 15, 20, 25, 50, 100];
 
     public static SymbolMeta Of(Symbol symbol) =>
-        Meta.TryGetValue(symbol, out var m) ? m : new("?", symbol.ToString(), "card", "sym-unknown");
+        Meta.TryGetValue(symbol, out var m) ? m : new(symbol.ToString(), "sym-unknown");
 
     /// <summary>Looks up a paytable key ("Ten", "Fish", ...).</summary>
     public static SymbolMeta Of(string key) =>
-        Enum.TryParse<Symbol>(key, ignoreCase: false, out var s) ? Of(s) : new("?", key, "card", "sym-unknown");
+        Enum.TryParse<Symbol>(key, ignoreCase: false, out var s) ? Of(s) : new(key, "sym-unknown");
 
     public static string Name(Symbol symbol) => Of(symbol).Name;
 

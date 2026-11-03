@@ -1,9 +1,10 @@
+@* Feature message (free spins awarded / retrigger / complete). Never auto-dismisses: click, Space or Enter. *@
 <div class="overlay @Kind" role="dialog" aria-modal="true" aria-labelledby="ov-title" tabindex="-1"
      @ref="root" @onclick="OnDismiss">
     <div class="overlay-card">
         <h2 id="ov-title" class="ov-title">@Title</h2>
         <p class="ov-text">@Text</p>
-        <p class="ov-hint">@(AutoContinue ? "Continuing automatically… (click to skip)" : "Click to continue")</p>
+        <p class="ov-hint">Click or press Space to continue</p>
     </div>
 </div>
 
@@ -14,14 +15,13 @@
     /// <summary>"trigger", "retrigger" or "end".</summary>
     [Parameter] public string? Kind { get; set; }
 
-    [Parameter] public bool AutoContinue { get; set; }
     [Parameter] public EventCallback OnDismiss { get; set; }
 
     private ElementReference root;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // Move focus into the dialog so screen readers announce it.
+        // Move focus into the dialog for screen readers, without scrolling the page.
         if (firstRender) await root.FocusAsync(preventScroll: true);
     }
 }

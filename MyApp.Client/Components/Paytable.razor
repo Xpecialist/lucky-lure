@@ -104,7 +104,7 @@
     {
         var m = Symbols.Of(key);
         return @<span class="pt-sym">
-                    <span class="mini @m.Kind @m.Css">@m.Glyph</span>@m.Name
+                    <svg class="mini" viewBox="0 0 100 100" aria-hidden="true"><use href="@m.Art" /></svg>@m.Name
                     @if (m.Tag is not null)
                     {
                         <small> (@m.Tag)</small>

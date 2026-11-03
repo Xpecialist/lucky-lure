@@ -1,0 +1,77 @@
+@* BIG / MEGA WIN banner with a rolling win counter; MEGA adds a coin-and-bubble shower. Click or Space skips. *@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div class="celebration @(Tier == WinTier.Mega ? "mega" : "big")" role="status" aria-live="assertive" @onclick="OnSkip">
+    @if (Tier == WinTier.Mega && !ReducedMotion)
+    {
+        <div class="shower" aria-hidden="true">
+            @foreach (var p in particles)
+            {
+                <i class="@p.Kind" style="@p.Style"></i>
+            }
+        </div>
+    }
+    <div class="banner">
+        <div class="banner-title">@(Tier == WinTier.Mega ? "MEGA WIN" : "BIG WIN")</div>
+        <div class="banner-amount" @ref="amountEl"></div>
+        <div class="banner-hint">Click or press Space to skip</div>
+    </div>
+    <span class="sr-only">@Fmt.Money(Amount)</span>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public WinTier Tier { get; set; }
+    [Parameter, EditorRequired] public decimal Amount { get; set; }
+
+    /// <summary>How long the counter rolls up (0 = show the amount at once).</summary>
+    [Parameter] public int RollMs { get; set; } = 1500;
+
+    [Parameter] public bool ReducedMotion { get; set; }
+    [Parameter] public EventCallback OnSkip { get; set; }
+
+    private sealed record Particle(string Kind, string Style);
+
+    private ElementReference amountEl;
+    private IJSObjectReference? fx;
+    private Particle[] particles = [];
+
+    protected override void OnInitialized()
+    {
+        var rnd = Random.Shared;
+        particles = Enumerable.Range(0, 36).Select(i =>
+        {
+            var kind = i % 3 == 0 ? "bubble" : "coin";
+            var style = FormattableString.Invariant(
+                $"left:{rnd.Next(0, 100)}%;--size:{rnd.Next(14, 32)}px;animation-delay:{rnd.Next(0, 1600)}ms;animation-duration:{rnd.Next(1600, 2900)}ms");
+            return new Particle(kind, style);
+        }).ToArray();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            fx = await JS.InvokeAsync<IJSObjectReference>("import", "./js/fx.js");
+            await fx.InvokeVoidAsync("rollUp", amountEl, Amount, ReducedMotion ? 0 : RollMs);
+        }
+        catch (JSException)
+        {
+            // The banner still shows; only the counter is missing.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (fx is null) return;
+        try
+        {
+            await fx.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // Page is going away.
+        }
+    }
+}

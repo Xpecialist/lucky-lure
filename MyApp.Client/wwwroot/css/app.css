@@ -67,6 +67,14 @@ body {
   padding: 12px 8px 24px;
 }
 
+/* Header + FREE SPINS banner stacked in one grid cell: the slot is always as tall as the taller of the two,
+   so showing / hiding the banner never shifts the reels. */
+.masthead { display: grid; }
+.masthead > * { grid-area: 1 / 1; align-self: center; }
+.masthead > .fs-banner { width: 100%; visibility: hidden; }
+.masthead.feature > .fs-banner { visibility: visible; }
+.masthead.feature > .header { visibility: hidden; }
+
 /* Header */
 .header { text-align: center; margin-bottom: 10px; }
 .title {
@@ -106,6 +114,7 @@ body {
     0 12px 30px rgba(0,0,0,.55);
 }
 .reels {
+  position: relative; /* the payline trace is laid over the reels */
   display: flex;
   gap: var(--gap);
   border-radius: 8px;
@@ -198,7 +207,26 @@ body {
   transition: transform .08s ease, box-shadow .08s ease, filter .2s ease;
   touch-action: manipulation;
 }
-.spin-btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 #6b4a05, 0 4px 10px rgba(0,0,0,.5); }
+.spin-btn:active:not(:disabled) { transform: translateY(4px) scale(.97); filter: brightness(1.12); box-shadow: 0 2px 0 #6b4a05, 0 4px 10px rgba(0,0,0,.5); }
+/* "Ready" glow ring (compositor-only: opacity + transform); flashes on press. */
+.spin-btn { position: relative; }
+.spin-btn::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 232, 160, .85);
+  box-shadow: 0 0 18px rgba(244, 200, 79, .85), inset 0 0 10px rgba(244, 200, 79, .5);
+  opacity: 0;
+  pointer-events: none;
+}
+.spin-btn:not(:disabled)::after { animation: spin-ready 1.6s ease-in-out infinite; }
+.spin-btn:active:not(:disabled)::after { animation: none; opacity: 1; transform: scale(1.1); }
+.spin-btn.free::after { border-color: rgba(201, 255, 224, .9); box-shadow: 0 0 18px rgba(47, 191, 114, .9); }
+@keyframes spin-ready {
+  0%, 100% { opacity: .15; transform: scale(.96); }
+  50%      { opacity: .9;  transform: scale(1.04); }
+}
 .spin-btn:disabled { filter: grayscale(.6) brightness(.8); cursor: not-allowed; }
 .spin-btn.free { font-size: 17px; background: radial-gradient(circle at 35% 30%, #b9ffd6, #2fbf72 50%, #0d6b3a 100%); color: #032712; border-color: #c9ffe0; }
 
@@ -239,6 +267,9 @@ button:focus-visible { outline: 3px solid var(--gold-light); outline-offset: 2px
   .app { padding-left: 8px; padding-right: 8px; }
   .frame { padding: 6px; border-width: 6px; }
   .spin-btn { width: 92px; height: 92px; font-size: 21px; }
+  .bet-row { gap: 3px; }
+  .bet-btn { width: 24px; height: 24px; font-size: 16px; }
+  .stat { padding-left: 2px; padding-right: 2px; }
   .message { font-size: 14px; }
 }
 
@@ -251,7 +282,7 @@ button:focus-visible { outline: 3px solid var(--gold-light); outline-offset: 2px
     --frame-w: calc(var(--cell) * 5 + var(--gap) * 4 + 32px); /* reels + frame padding/border */
   }
   .app { max-width: 880px; }
-  .app > :is(.fs-banner, .paytable, .footer) { max-width: 640px; margin-left: auto; margin-right: auto; }
+  .app > :is(.masthead, .paytable, .footer) { max-width: 640px; margin-left: auto; margin-right: auto; }
 
   .cabinet {
     display: grid;
@@ -286,6 +317,7 @@ button:focus-visible { outline: 3px solid var(--gold-light); outline-offset: 2px
 @media (prefers-reduced-motion: reduce) {
   .bubbles { animation: none !important; }
   .spin-btn { transition: none; }
+  .spin-btn::after { animation: none !important; }
 }
 
 /* ---------- boot screen (shown while the .NET runtime downloads) ---------- */

@@ -10,8 +10,7 @@ public partial class Home : IAsyncDisposable
 {
     private const int MinSpinMs = 350;      // reels always spin at least this long
     private const int StopGapMs = 130;      // left-to-right stop stagger
-    private const int LandMs = 300;         // matches the reel-land CSS animation
-    private const int OverlayAutoMs = 4000; // auto-dismiss during auto-play
+    private const int LandMs = 360;         // matches the reel-land CSS animation
 
     private sealed record OverlayModel(string Title, string Text, string Kind);
 
@@ -28,6 +27,9 @@ public partial class Home : IAsyncDisposable
     private decimal fillerBet = 1m;
     private bool fillerFree;
     private bool[][]? winMarks;
+    private bool[][]? boatMarks;                 // celebrating Scatters (trigger / nudge tease)
+    private IReadOnlyList<LineWin>? traceLines;  // paylines drawn over the reels
+    private int traceId;                         // new id = trace animation replays
 
     private bool busy;          // from SPIN until the result (and any overlays) are done
     private bool resetting;
@@ -40,8 +42,8 @@ public partial class Home : IAsyncDisposable
     private decimal? featureWinOverride;
 
     private OverlayModel? overlay;
-    private TaskCompletionSource? overlayDone;
-    private CancellationTokenSource? overlayTimer;
+    private readonly SkipGate overlayGate = new();      // overlays wait for click / Space / Enter
+    private readonly SkipGate celebrationGate = new();  // big/mega win banner, skippable
     private CancellationTokenSource? nextSpin;
 
     private IJSObjectReference? keys;
@@ -107,15 +109,20 @@ public partial class Home : IAsyncDisposable
     [JSInvokable]
     public Task OnSpaceKey() => SpinAsync();
 
+    /// <summary>Space/Enter while an overlay or a win celebration is showing.</summary>
     [JSInvokable]
-    public void OnOverlayKey() => DismissOverlay();
+    public void OnDismissKey()
+    {
+        if (overlay is not null) overlayGate.Skip();
+        else celebrationGate.Skip();
+    }
 
     public async ValueTask DisposeAsync()
     {
         disposed = true;
         CancelNextSpin();
-        CancelOverlayTimer();
-        overlayDone?.TrySetResult();
+        overlayGate.Skip();
+        celebrationGate.Skip();
         if (keys is not null)
         {
             try
@@ -152,6 +159,8 @@ public partial class Home : IAsyncDisposable
         // 1) Start all reels spinning right now (pure CSS loop) and show the optimistic balance.
         busy = true;
         winMarks = null;
+        boatMarks = null;
+        traceLines = null;
         winAmount = 0;
         featureWinOverride = null;
         if (!free) displayBalance = prevState.Balance - bet;
@@ -199,19 +208,26 @@ public partial class Home : IAsyncDisposable
             SetState(result.State);
             winAmount = result.TotalWin;
             winMarks = WinText.Marks(result, finalGrid, finalLines, final: true);
+            ShowTrace(finalLines);
             ShowMessage(WinText.Describe(result, finalLines, final: true), result.TotalWin > 0 ? "win" : null);
             if (result.FeatureEnded)
                 featureWinOverride = Math.Max(Math.Round(result.State.FreeSpinWin, 2), Math.Round(prevState.FreeSpinWin + result.TotalWin, 2));
             StateHasChanged();
 
-            // 4) Feature overlays, in order.
+            // 4) Celebrate, then the feature overlays. Overlays never auto-dismiss: they wait for the player.
+            var celebrated = await CelebrateWinAsync(result);
             if (result.FreeSpinsAwarded > 0)
-                await ShowOverlayAsync("FREE SPINS!", $"{result.FreeSpinsAwarded} spins", "trigger");
+            {
+                await CelebrateBoatsAsync(finalGrid, result.ScatterCount);
+                await ShowOverlayAsync("FREE SPINS!", $"{result.FreeSpinsAwarded} free spins", "trigger");
+            }
+            // Let a retriggering / last free spin finish on screen (wins, collect) before its overlay.
+            if ((result.Retriggered || result.FeatureEnded) && !celebrated) await PauseAsync(FeatureSettleMs);
             if (result.Retriggered)
             {
                 var added = result.State.FreeSpinsTotal - prevState.FreeSpinsTotal;
                 if (added <= 0) added = 10;
-                await ShowOverlayAsync("RETRIGGER!", $"+{added} spins, multiplier ×{result.State.Multiplier}", "retrigger");
+                await ShowOverlayAsync("RETRIGGER!", $"+{added} spins — now ×{result.State.Multiplier}", "retrigger");
             }
             if (result.FeatureEnded)
                 await ShowOverlayAsync("Feature complete", $"You won {Fmt.Money(featureWinOverride ?? 0)}", "end");
@@ -250,6 +266,9 @@ public partial class Home : IAsyncDisposable
     {
         Array.Fill(reelSpinning, false);
         Array.Fill(heldReels, false);
+        boatMarks = null;
+        traceLines = null;
+        celebration = null;
         busy = false;
         featureWinOverride = null;
         CancelNextSpin();
@@ -326,7 +345,7 @@ public partial class Home : IAsyncDisposable
         autoOn = !autoOn;
         if (autoOn)
         {
-            if (overlay is not null && overlayTimer is null) StartOverlayTimer();
+
             if (!busy && overlay is null && nextSpin is null) await SpinAsync();
         }
         else if (!InFeature)
@@ -335,61 +354,19 @@ public partial class Home : IAsyncDisposable
         }
     }
 
-    private void StopAuto()
-    {
-        autoOn = false;
-        CancelOverlayTimer();
-    }
+    private void StopAuto() => autoOn = false;
 
     // ---------- overlays ----------
 
-    private Task ShowOverlayAsync(string title, string text, string kind)
+    /// <summary>Shows a feature overlay and waits until the player dismisses it (click, Space or Enter).</summary>
+    private async Task ShowOverlayAsync(string title, string text, string kind)
     {
-        overlayDone = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         overlay = new OverlayModel(title, text, kind);
-        if (autoOn) StartOverlayTimer();
         StateHasChanged();
-        return overlayDone.Task;
-    }
-
-    private void DismissOverlay()
-    {
-        if (overlay is null) return;
+        await overlayGate.WaitAsync();
         overlay = null;
-        CancelOverlayTimer();
-        var done = overlayDone;
-        overlayDone = null;
         StateHasChanged();
-        done?.TrySetResult();
     }
-
-    private void StartOverlayTimer()
-    {
-        CancelOverlayTimer();
-        overlayTimer = new CancellationTokenSource();
-        _ = AutoDismissAsync(overlayTimer.Token);
-    }
-
-    private async Task AutoDismissAsync(CancellationToken token)
-    {
-        try
-        {
-            await Task.Delay(OverlayAutoMs, token);
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-        await InvokeAsync(DismissOverlay);
-    }
-
-    private void CancelOverlayTimer()
-    {
-        overlayTimer?.Cancel();
-        overlayTimer?.Dispose();
-        overlayTimer = null;
-    }
-
     // ---------- bet & reset ----------
 
     private void ChangeBet(int delta)
@@ -410,6 +387,8 @@ public partial class Home : IAsyncDisposable
             SetState(await Client.ResetAsync());
             winAmount = 0;
             winMarks = null;
+            boatMarks = null;
+            traceLines = null;
             featureWinOverride = null;
             ShowMessage($"Balance reset to {Fmt.Money(state!.Balance)}. Good luck!");
         }

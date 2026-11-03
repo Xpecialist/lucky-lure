@@ -10,8 +10,8 @@
     @if (Spinning)
     {
         <div class="strip looping" aria-hidden="true">
-            @foreach (var cell in loop) { @CellView(cell, false) }
-            @foreach (var cell in loop) { @CellView(cell, false) }
+            @foreach (var cell in loop) { @CellView(cell, null) }
+            @foreach (var cell in loop) { @CellView(cell, null) }
         </div>
     }
     else
@@ -19,9 +19,9 @@
         <div class="strip @animClass" @key="animKey">
             @for (var row = 0; row < Cells.Length; row++)
             {
-                @CellView(Cells[row], WinRows is { } w && row < w.Length && w[row])
+                @CellView(Cells[row], RowFx(row))
             }
-            @foreach (var cell in tail) { @CellView(cell, false) }
+            @foreach (var cell in tail) { @CellView(cell, null) }
         </div>
     }
     @if (Held)
@@ -46,6 +46,9 @@
     /// <summary>Winning rows on this reel (null = none).</summary>
     [Parameter] public bool[]? WinRows { get; set; }
 
+    /// <summary>Rows whose Scatter (boat) celebrates: free-spin trigger or nudge tease (null = none).</summary>
+    [Parameter] public bool[]? BoatRows { get; set; }
+
     /// <summary>Dim the non-winning cells.</summary>
     [Parameter] public bool Dim { get; set; }
 
@@ -64,6 +67,7 @@
     private bool wasSpinning;
     private Cell[]? lastCells;
     private bool[]? lastWinRows;
+    private bool[]? lastBoatRows;
     private bool lastDim;
     private bool lastHeld;
     private bool dirty = true;
@@ -90,12 +94,13 @@
         }
 
         // The parent re-renders often while spinning; only diff this reel when something changed.
-        dirty = Spinning != wasSpinning || cellsChanged || !ReferenceEquals(WinRows, lastWinRows)
+        dirty = Spinning != wasSpinning || cellsChanged || !ReferenceEquals(WinRows, lastWinRows) || !ReferenceEquals(BoatRows, lastBoatRows)
                 || Dim != lastDim || Held != lastHeld;
 
         wasSpinning = Spinning;
         lastCells = Cells;
         lastWinRows = WinRows;
+        lastBoatRows = BoatRows;
         lastDim = Dim;
         lastHeld = Held;
     }
@@ -109,13 +114,19 @@
         animKey++;
     }
 
-    private static RenderFragment CellView(Cell cell, bool win)
+    private string? RowFx(int row) =>
+        BoatRows is { } b && row < b.Length && b[row] ? "boat"
+        : WinRows is { } w && row < w.Length && w[row] ? "win"
+        : null;
+
+    /// <summary>One cell: the symbol's SVG art (from the shared sprite), fish value badge and WILD/SCATTER tag.</summary>
+    private static RenderFragment CellView(Cell cell, string? fx)
     {
         var meta = Symbols.Of(cell.Symbol);
         var fishValue = cell.Symbol == Symbol.Fish ? cell.Value : null;
         var label = fishValue is { } fv ? $"{meta.Name} {Fmt.Money(fv)}" : meta.Name;
-        return @<div class="cell @meta.Kind @meta.Css @(win ? "win" : null)" title="@label">
-                    <span class="glyph">@meta.Glyph</span>
+        return @<div class="cell @meta.Css @fx" title="@label">
+                    <svg class="art" viewBox="0 0 100 100" aria-hidden="true"><use href="@meta.Art" /></svg>
                     @if (fishValue is { } v)
                     {
                         <span class="val">@Fmt.Short(v)</span>

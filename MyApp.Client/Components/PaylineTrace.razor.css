@@ -1,0 +1,35 @@
+.trace {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 4;
+    pointer-events: none;
+    overflow: visible;
+}
+
+polyline {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: trace-draw .55s ease-out forwards, trace-fade .5s ease-in forwards;
+    animation-delay: var(--d, 0ms), calc(var(--d, 0ms) + 2.2s);
+}
+
+.glow { stroke: rgba(255, 214, 90, .55); stroke-width: 12px; filter: blur(3px); }
+.core { stroke: #fff6c8; stroke-width: 4px; }
+
+@keyframes trace-draw {
+    to { stroke-dashoffset: 0; }
+}
+
+@keyframes trace-fade {
+    to { opacity: .25; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    polyline { animation: none; stroke-dashoffset: 0; }
+}

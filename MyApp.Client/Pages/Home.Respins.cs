@@ -27,7 +27,9 @@ public partial class Home
 
             // Tease: glow the Scatters on the reels about to be held.
             foreach (var r in step.HeldReels) heldReels[r] = true;
-            winMarks = WinText.ScatterMarks(grid, step.HeldReels);
+            winMarks = null;
+            traceLines = null;
+            boatMarks = WinText.ScatterMarks(grid, step.HeldReels);
             ShowMessage(i == 0
                 ? $"{step.HeldReels.Length} Boats — nudge respin!"
                 : $"{step.HeldReels.Length} Boats again — another nudge respin!", "win");
@@ -35,7 +37,7 @@ public partial class Home
             await PauseAsync(TeasePauseMs);
 
             // Nudge the held reels down one cell (CSS) and respin the others like a normal spin.
-            winMarks = null;
+            boatMarks = null;
             grid = (Cell[][])grid.Clone();
             for (var r = 0; r < Symbols.Reels; r++)
             {
@@ -61,6 +63,7 @@ public partial class Home
     {
         winAmount = wonSoFar;
         winMarks = WinText.Marks(result, stageGrid, lineWins, final: false);
+        ShowTrace(lineWins);
         ShowMessage(WinText.Describe(result, lineWins, final: false), lineWins.Count > 0 ? "win" : null);
         StateHasChanged();
         await PauseAsync(StagePauseMs);

@@ -1,16 +1,19 @@
-﻿@page "/"
+@page "/"
 
 <PageTitle>Lucky Lure</PageTitle>
 
-<header class="header">
-    <h1 class="title" tabindex="-1"><span class="title-hook" aria-hidden="true">🎣</span> Lucky Lure</h1>
-    <p class="play-note">Play money only · no real-money wagering</p>
-</header>
-
-@if (ShowBanner)
-{
-    <FreeSpinBanner State="state!" Info="info!" FeatureWin="featureWinOverride" />
-}
+@* Header and FREE SPINS banner share one slot (stacked in the same grid cell), so the reels never move when
+   the feature starts or ends — no layout jump under the overlays. *@
+<div class="masthead @(ShowBanner ? "feature" : null)">
+    <header class="header">
+        <h1 class="title" tabindex="-1"><span class="title-hook" aria-hidden="true">🎣</span> Lucky Lure</h1>
+        <p class="play-note">Play money only · no real-money wagering</p>
+    </header>
+    @if (Ready)
+    {
+        <FreeSpinBanner State="state!" Info="info!" FeatureWin="featureWinOverride" />
+    }
+</div>
 
 @* .cabinet only matters on wide screens: there the SPIN column sits to the right of the reels (see app.css). *@
 <div class="cabinet">
@@ -24,10 +27,12 @@
                       Spinning="reelSpinning[reel]"
                       Held="heldReels[reel]"
                       WinRows="winMarks?[reel]"
-                      Dim="winMarks is not null"
+                      BoatRows="boatMarks?[reel]"
+                      Dim="winMarks is not null || boatMarks is not null"
                       FillerBet="fillerBet"
                       FreeMode="fillerFree" />
             }
+            <PaylineTrace @key="traceId" Lines="traceLines" Paylines="info?.Paylines" />
         </div>
     </div>
     <div class="message @messageKind" aria-live="polite">@message</div>
@@ -74,8 +79,13 @@
 
 <footer class="footer">Lucky Lure is a game for entertainment. Balances are play money and have no cash value.</footer>
 
+@if (celebration is not null)
+{
+    <WinCelebration @key="celebration" Tier="celebration.Tier" Amount="celebration.Amount" RollMs="celebration.RollMs"
+                    ReducedMotion="reducedMotion" OnSkip="celebrationGate.Skip" />
+}
+
 @if (overlay is not null)
 {
-    <Overlay @key="overlay" Title="@overlay.Title" Text="@overlay.Text" Kind="@overlay.Kind"
-             AutoContinue="autoOn" OnDismiss="DismissOverlay" />
+    <Overlay @key="overlay" Title="@overlay.Title" Text="@overlay.Text" Kind="@overlay.Kind" OnDismiss="overlayGate.Skip" />
 }

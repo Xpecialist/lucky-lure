@@ -1,5 +1,5 @@
 // Lucky Lure: global keyboard shortcuts (Blazor needs JS for document-level key events).
-// Space = spin; Space/Enter = dismiss an open overlay.
+// Space = spin; Space/Enter = dismiss an open overlay or skip a win celebration.
 let handler = null;
 
 export function register(dotnet) {
@@ -9,9 +9,10 @@ export function register(dotnet) {
     const isEnter = e.key === 'Enter';
     if (!isSpace && !isEnter) return;
 
-    if (document.querySelector('.overlay')) {
+    if (document.querySelector('.overlay, .celebration')) {
       e.preventDefault();
-      dotnet.invokeMethodAsync('OnOverlayKey');
+      // Holding the key must not skip several overlays in a row.
+      if (!e.repeat) dotnet.invokeMethodAsync('OnDismissKey');
       return;
     }
     if (!isSpace) return;

@@ -1,0 +1,28 @@
+@* Glowing trace drawn along each winning payline, laid over the reels (1 unit = 1 cell). *@
+@if (Lines is { Count: > 0 } && Paylines is { Length: > 0 })
+{
+    <svg class="trace" viewBox="0 0 5 3" preserveAspectRatio="none" aria-hidden="true">
+        @for (var i = 0; i < Lines.Count; i++)
+        {
+            var points = Points(Lines[i].Line);
+            if (points is null) continue;
+            <polyline class="glow" points="@points" pathLength="1" style="--d: @(i * 140)ms" />
+            <polyline class="core" points="@points" pathLength="1" style="--d: @(i * 140)ms" />
+        }
+    </svg>
+}
+
+@code {
+    /// <summary>The line wins to trace (null/empty = nothing).</summary>
+    [Parameter] public IReadOnlyList<LineWin>? Lines { get; set; }
+
+    /// <summary>GameInfo.Paylines: row index per reel for each line.</summary>
+    [Parameter] public int[][]? Paylines { get; set; }
+
+    private string? Points(int line)
+    {
+        if (Paylines is null || line < 0 || line >= Paylines.Length) return null;
+        var rows = Paylines[line];
+        return string.Join(" ", rows.Select((row, reel) => FormattableString.Invariant($"{reel + .5},{row + .5}")));
+    }
+}
