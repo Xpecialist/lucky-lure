@@ -120,6 +120,19 @@ body {
   border-radius: 8px;
 }
 
+/* BIG NET: a light shake of the machine (transform only). */
+.frame.shake { animation: frame-shake .5s .3s ease-in-out; }
+@keyframes frame-shake {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  15% { transform: translate3d(-4px, 1px, 0) rotate(-.4deg); }
+  35% { transform: translate3d(4px, -1px, 0) rotate(.4deg); }
+  55% { transform: translate3d(-3px, 1px, 0); }
+  75% { transform: translate3d(2px, 0, 0); }
+}
+
+/* Click-anywhere-to-skip catcher during the net cast (no visuals). */
+.skip-layer { position: fixed; inset: 0; z-index: 30; cursor: pointer; }
+
 /* Message line */
 .message {
   min-height: 44px;
@@ -318,6 +331,7 @@ button:focus-visible { outline: 3px solid var(--gold-light); outline-offset: 2px
   .bubbles { animation: none !important; }
   .spin-btn { transition: none; }
   .spin-btn::after { animation: none !important; }
+  .frame.shake { animation: none; }
 }
 
 /* ---------- boot screen (shown while the .NET runtime downloads) ---------- */

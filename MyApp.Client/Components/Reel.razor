@@ -49,6 +49,12 @@
     /// <summary>Rows whose Scatter (boat) celebrates: free-spin trigger or nudge tease (null = none).</summary>
     [Parameter] public bool[]? BoatRows { get; set; }
 
+    /// <summary>
+    /// Per-row effect class that wins over the marks above (net cast: "react" = fisherman reacts,
+    /// "pop" = cell just turned into a Fish). Null = none.
+    /// </summary>
+    [Parameter] public string?[]? FxRows { get; set; }
+
     /// <summary>Dim the non-winning cells.</summary>
     [Parameter] public bool Dim { get; set; }
 
@@ -68,6 +74,7 @@
     private Cell[]? lastCells;
     private bool[]? lastWinRows;
     private bool[]? lastBoatRows;
+    private string?[]? lastFxRows;
     private bool lastDim;
     private bool lastHeld;
     private bool dirty = true;
@@ -90,17 +97,21 @@
         }
         else if (cellsChanged && !Spinning)
         {
-            StartAnimation(null, []); // new grid without an animation (e.g. initial load)
+            // New cells without a strip animation (initial load, net-cast transform): keep the same strip
+            // element so the cells are patched in place and per-cell effects (pop) play only where they change.
+            animClass = null;
+            tail = [];
         }
 
         // The parent re-renders often while spinning; only diff this reel when something changed.
-        dirty = Spinning != wasSpinning || cellsChanged || !ReferenceEquals(WinRows, lastWinRows) || !ReferenceEquals(BoatRows, lastBoatRows)
+        dirty = Spinning != wasSpinning || cellsChanged || !ReferenceEquals(WinRows, lastWinRows) || !ReferenceEquals(BoatRows, lastBoatRows) || !ReferenceEquals(FxRows, lastFxRows)
                 || Dim != lastDim || Held != lastHeld;
 
         wasSpinning = Spinning;
         lastCells = Cells;
         lastWinRows = WinRows;
         lastBoatRows = BoatRows;
+        lastFxRows = FxRows;
         lastDim = Dim;
         lastHeld = Held;
     }
@@ -115,7 +126,8 @@
     }
 
     private string? RowFx(int row) =>
-        BoatRows is { } b && row < b.Length && b[row] ? "boat"
+        FxRows is { } f && row < f.Length && f[row] is { } fx ? fx
+        : BoatRows is { } b && row < b.Length && b[row] ? "boat"
         : WinRows is { } w && row < w.Length && w[row] ? "win"
         : null;
 

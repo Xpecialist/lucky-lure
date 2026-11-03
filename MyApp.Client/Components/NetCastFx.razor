@@ -1,0 +1,18 @@
+@* Free-spin net cast build-up, laid over the reels: a net sweeps across, water splashes, "NET CAST!" / "BIG NET!".
+   Pure CSS animation; the page drives timing (Home.NetCast.cs) and removes it when the fish have landed. *@
+<div class="netfx @(Size == NetSize.Big ? "big" : "small")" aria-hidden="true">
+    <div class="net"></div>
+    <div class="splash">
+        @for (var i = 0; i < Drops; i++)
+        {
+            <i style="--a: @(i * 360 / Drops)deg"></i>
+        }
+    </div>
+    <div class="net-banner">@(Size == NetSize.Big ? "BIG NET!" : "NET CAST!")</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public NetSize Size { get; set; }
+
+    private int Drops => Size == NetSize.Big ? 14 : 9;
+}

@@ -199,6 +199,13 @@ public partial class Home : IAsyncDisposable
 
             // 3b) Base-game nudge respins (if any) before the final result.
             var (finalGrid, finalLines) = (result.Grid, result.LineWins);
+
+            // 3a) Free-spin net cast: cells turn into Fish; wins/collect are on the transformed grid.
+            if (result.Net is { } net)
+            {
+                finalGrid = await PlayNetCastAsync(net);
+                if (disposed) return;
+            }
             if (result.Respins.Count > 0)
             {
                 (finalGrid, finalLines) = await PlayRespinsAsync(result);
@@ -269,6 +276,7 @@ public partial class Home : IAsyncDisposable
         boatMarks = null;
         traceLines = null;
         celebration = null;
+        ClearNetCast();
         busy = false;
         featureWinOverride = null;
         CancelNextSpin();

@@ -34,13 +34,17 @@ public sealed class GameClient(HttpClient http)
             Respins = result.Respins ?? [],
         };
 
-        if (!IsValidGrid(result.Grid) || result.State is null || result.Respins.Any(step => !IsValidStep(step)))
+        if (!IsValidGrid(result.Grid) || result.State is null || result.Respins.Any(step => !IsValidStep(step)) || (result.Net is { } net && !IsValidNet(net)))
             throw new ApiException("Unexpected response from server.");
         return result;
     }
 
     private static bool IsValidGrid(Cell[][]? grid) =>
         grid is { Length: Reels } && grid.All(col => col is { Length: Rows });
+
+    private static bool IsValidNet(NetCast net) =>
+        IsValidGrid(net.Grid) && net.Positions is not null
+        && net.Positions.All(p => p is { Length: 2 } && p[0] is >= 0 and < Reels && p[1] is >= 0 and < Rows);
 
     private static bool IsValidStep(RespinStep? step) =>
         step is not null && IsValidGrid(step.Grid) && step.LineWins is not null

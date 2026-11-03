@@ -18,7 +18,7 @@
 @* .cabinet only matters on wide screens: there the SPIN column sits to the right of the reels (see app.css). *@
 <div class="cabinet">
 <main class="machine">
-    <div class="frame">
+    <div class="frame @(netShake ? "shake" : null)">
         <div class="reels" aria-label="Reels">
             @for (var r = 0; r < Symbols.Reels; r++)
             {
@@ -28,11 +28,16 @@
                       Held="heldReels[reel]"
                       WinRows="winMarks?[reel]"
                       BoatRows="boatMarks?[reel]"
+                      FxRows="netFx?[reel]"
                       Dim="winMarks is not null || boatMarks is not null"
                       FillerBet="fillerBet"
                       FreeMode="fillerFree" />
             }
             <PaylineTrace @key="traceId" Lines="traceLines" Paylines="info?.Paylines" />
+            @if (netCast is not null)
+            {
+                <NetCastFx Size="netCast.Size" />
+            }
         </div>
     </div>
     <div class="message @messageKind" aria-live="polite">@message</div>
@@ -78,6 +83,12 @@
 <Paytable Info="info" Bet="CurrentBet" />
 
 <footer class="footer">Lucky Lure is a game for entertainment. Balances are play money and have no cash value.</footer>
+
+@if (netCast is not null)
+{
+    @* Transparent layer: a click anywhere (or Space/Enter, via [data-skippable]) skips the net-cast animation. *@
+    <div class="skip-layer" data-skippable @onclick="celebrationGate.Skip"></div>
+}
 
 @if (celebration is not null)
 {

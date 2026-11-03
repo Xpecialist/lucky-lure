@@ -11,8 +11,11 @@ public sealed class SkipGate
     /// <summary>True while someone is waiting on the gate.</summary>
     public bool IsWaiting => pending is not null;
 
-    /// <summary>Waits until <see cref="Skip"/> is called or, when given, the timeout elapses.</summary>
-    public async Task WaitAsync(int? timeoutMs = null)
+    /// <summary>
+    /// Waits until <see cref="Skip"/> is called or, when given, the timeout elapses.
+    /// Returns true when the player skipped.
+    /// </summary>
+    public async Task<bool> WaitAsync(int? timeoutMs = null)
     {
         pending?.TrySetResult();
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -21,6 +24,7 @@ public sealed class SkipGate
         {
             if (timeoutMs is int ms) await Task.WhenAny(tcs.Task, Task.Delay(ms));
             else await tcs.Task;
+            return tcs.Task.IsCompleted;
         }
         finally
         {

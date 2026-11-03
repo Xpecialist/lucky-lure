@@ -1,10 +1,11 @@
-@* Glowing trace drawn along each winning payline, laid over the reels (1 unit = 1 cell). *@
-@if (Lines is { Count: > 0 } && Paylines is { Length: > 0 })
+@* Glowing trace through the WINNING cells of each line win (not the whole payline), laid over the reels
+   (1 unit = 1 cell). It stops at the last winning reel, so a Scatter after the run never looks like part of it. *@
+@if (Lines is { Count: > 0 })
 {
     <svg class="trace" viewBox="0 0 5 3" preserveAspectRatio="none" aria-hidden="true">
         @for (var i = 0; i < Lines.Count; i++)
         {
-            var points = Points(Lines[i].Line);
+            var points = Points(Lines[i]);
             if (points is null) continue;
             <polyline class="glow" points="@points" pathLength="1" style="--d: @(i * 140)ms" />
             <polyline class="core" points="@points" pathLength="1" style="--d: @(i * 140)ms" />
@@ -19,10 +20,16 @@
     /// <summary>GameInfo.Paylines: row index per reel for each line.</summary>
     [Parameter] public int[][]? Paylines { get; set; }
 
-    private string? Points(int line)
+    /// <summary>Centres of the winning cells, left to right: LineWin.Positions, else the first Count reels of the payline.</summary>
+    private string? Points(LineWin win)
     {
-        if (Paylines is null || line < 0 || line >= Paylines.Length) return null;
-        var rows = Paylines[line];
-        return string.Join(" ", rows.Select((row, reel) => FormattableString.Invariant($"{reel + .5},{row + .5}")));
+        IEnumerable<(int Reel, int Row)> cells = win.Positions is { Length: > 0 } positions
+            ? positions.Where(p => p is { Length: >= 2 }).Select(p => (p[0], p[1]))
+            : Paylines is { } lines && win.Line >= 0 && win.Line < lines.Length
+                ? lines[win.Line].Take(win.Count).Select((row, reel) => (reel, row))
+                : [];
+        var ordered = cells.OrderBy(c => c.Reel).ToList();
+        if (ordered.Count < 2) return null;
+        return string.Join(" ", ordered.Select(c => FormattableString.Invariant($"{c.Reel + .5},{c.Row + .5}")));
     }
 }

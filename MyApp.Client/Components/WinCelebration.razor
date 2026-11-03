@@ -2,7 +2,7 @@
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
-<div class="celebration @(Tier == WinTier.Mega ? "mega" : "big")" role="status" aria-live="assertive" @onclick="OnSkip">
+<div class="celebration @(Tier == WinTier.Mega ? "mega" : "big")" data-skippable role="status" aria-live="assertive" @onclick="OnSkip">
     @if (Tier == WinTier.Mega && !ReducedMotion)
     {
         <div class="shower" aria-hidden="true">

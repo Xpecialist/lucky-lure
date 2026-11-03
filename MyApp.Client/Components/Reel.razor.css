@@ -196,9 +196,56 @@
     50%      { transform: translateY(-16%) rotate(7deg) scale(1.12); }
 }
 
+/* ---------- net cast (free spins) ---------- */
+/* The fisherman winds up and throws. */
+.cell.react {
+    z-index: 1;
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 3px #7dffb2, inset 0 0 18px rgba(80, 220, 140, .8);
+}
+.cell.react .art { animation: fisher-throw .42s ease-in-out 2; }
+
+@keyframes fisher-throw {
+    0%, 100% { transform: translateY(-11%) rotate(0deg) scale(1); }
+    30%      { transform: translateY(-16%) rotate(-12deg) scale(1.08); }
+    65%      { transform: translateY(-8%) rotate(10deg) scale(1.12); }
+}
+
+/* A cell turning into a Fish: flips in with a splash ring. */
+.cell.pop { z-index: 1; }
+.cell.pop .art { animation: fish-flip .45s cubic-bezier(.2, 1.4, .4, 1) both; }
+.cell.pop .val { animation: badge-pop .4s .18s cubic-bezier(.2, 1.5, .4, 1) both; }
+.cell.pop::after {
+    content: "";
+    position: absolute;
+    inset: 12%;
+    border-radius: 50%;
+    border: 3px solid rgba(220, 248, 255, .95);
+    box-shadow: 0 0 10px rgba(120, 210, 255, .9), inset 0 0 8px rgba(120, 210, 255, .7);
+    pointer-events: none;
+    animation: splash-ring .5s ease-out forwards;
+}
+
+@keyframes fish-flip {
+    0%   { transform: translateY(-11%) rotateY(90deg) scale(.4); opacity: .2; }
+    100% { transform: translateY(-11%) rotateY(0deg) scale(1); opacity: 1; }
+}
+
+@keyframes badge-pop {
+    from { transform: translateX(-50%) scale(0); }
+    to   { transform: translateX(-50%) scale(1); }
+}
+
+@keyframes splash-ring {
+    from { transform: scale(.3); opacity: 1; }
+    to   { transform: scale(1.35); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     /* No scrolling: show the previous symbols faded while waiting, then the result. */
     .strip.looping { animation: none; filter: none; transform: translate3d(0, -50%, 0); opacity: .5; }
     .strip.landing, .strip.nudging, .cell.win, .cell.win .art, .cell.boat, .cell.boat .art { animation: none; }
+    .cell.react .art, .cell.pop .art, .cell.pop .val { animation: none; }
+    .cell.pop::after { display: none; }
     .cell { transition: none; }
 }

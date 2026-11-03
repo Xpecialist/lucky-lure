@@ -9,7 +9,7 @@ export function register(dotnet) {
     const isEnter = e.key === 'Enter';
     if (!isSpace && !isEnter) return;
 
-    if (document.querySelector('.overlay, .celebration')) {
+    if (document.querySelector('.overlay, [data-skippable]')) {
       e.preventDefault();
       // Holding the key must not skip several overlays in a row.
       if (!e.repeat) dotnet.invokeMethodAsync('OnDismissKey');
