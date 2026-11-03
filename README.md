@@ -24,8 +24,10 @@ A fishing-themed slot machine built end to end in .NET: an ASP.NET Core API runs
 ```
 MyApp/          ASP.NET Core server: API endpoints, slot engine, session store
 MyApp.Shared/   Shared models (Symbol, Cell, SpinResult, GameState, ...)
-MyApp.Client/   Blazor WebAssembly UI
+MyApp.Client/   Blazor WebAssembly UI (hosted by the server)
+tools/LuckyLure.Sim/    Monte-Carlo RTP simulator
 MyApp/API_CONTRACT.md   API specification shared by server and client
+docs/           Dev log and code review findings
 ```
 
 ## Getting started
@@ -34,10 +36,25 @@ Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download).
 
 ```bash
 dotnet build MyApp.sln
-dotnet run --project MyApp
+dotnet run --project MyApp --launch-profile http
 ```
 
-> Status: the server and client both build; hosting the client from the server is the next step.
+Then open http://localhost:5080.
+
+## Game balance
+
+Measured with the included Monte-Carlo simulator (20 million paid spins):
+
+| Metric | Value |
+|---|---|
+| Return to player (RTP) | ~95.7% |
+| Free spins trigger | 1 in ~50 spins |
+| Average free-spins win | ~26× bet |
+| Base game hit frequency | ~20% |
+
+```bash
+dotnet run -c Release --project tools/LuckyLure.Sim -- 2000000
+```
 
 ## API
 
