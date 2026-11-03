@@ -83,9 +83,30 @@ Newest entries at the bottom. Each entry: what changed, why, and the commit.
 - Tests: 82 total, 81 pass, 1 skipped (S3). New `ApiFactory` (raised limits) and `RateLimitTests`.
   Coordinator re-ran tests and played a spin in the browser: boots, no console errors.
 
+### Commits
+- `309f277` S1 + S2 fixes.
+
+### Nudge respin (new feature, user design)
+- Rule (base game only, inside one paid spin): exactly 2 Scatters, each in row 0 or 1 → the 2 scatter reels are
+  held and shift down one row (new non-Scatter symbol on top), the other 3 reels respin. Repeats while the
+  condition holds, cap 2 respins. Line wins pay on every grid; scatter pay/free spins from the final grid.
+  User decisions: positions "each in top or middle", pay every step, keep 1-in-50 overall.
+- Contract-first: coordinator added the rule to API_CONTRACT.md and `RespinStep` + `SpinResult.Respins` to
+  Models.cs, then backend and frontend builders worked in parallel.
+- Backend: nudge loop in `SlotEngine.Spin`; scatter chance 135‰ → 102‰, Ten/Jack 8/30/100 → 7/25/100.
+  Sim 20M: trigger 1 in 50.2, RTP 95.35%, 3.36% of paid spins nudge, 32.5% of nudge sequences trigger,
+  54.6% of all triggers come via a respin. Test invariants extended to every respin grid (84 tests, 83 pass, S3 skip).
+- Frontend: `Reel` gets a `Held` parameter (gold frame + "HELD" tag, one-cell slide-down), sequence in
+  `Pages/Home.Respins.cs`: original wins → boats glow + "2 Boats — nudge respin!" → held reels slide while the
+  others spin → per-step wins accumulate → free-spins overlay if triggered.
+- Coordinator verified: build clean, tests pass, 2M sim (1 in 50.0, RTP 95.71%), and saw a live nudge in the
+  browser (message + 2 HELD tags, final grid correct). One mid-sequence screenshot showed reels half a cell off,
+  taken while the browser pane was hidden (throttled animations); settled state was aligned. Worth a human look.
+
 ## Where we left off
 - Next candidates (user decides): backend T1 test seams, S3 error bodies, S4 cookie hardening;
-  frontend batch (H1 publish fix, C5 bet text, C1–C3/C7 client races).
+  frontend batch (H1 publish fix, C5 bet text, C1–C3/C7 client races); tester pass for the nudge respin
+  (deterministic tests need T1).
   After T1: tester adds the blocked deterministic tests.
 - Later: SVG symbol art, persistent sessions (database), deploy.
 
@@ -102,3 +123,4 @@ Newest entries at the bottom. Each entry: what changed, why, and the commit.
 10. Monte-Carlo simulation, reusing business logic, multi-threading, Release vs Debug, variance.
 11. Testing: xUnit Fact/Theory, invariant testing, WebApplicationFactory + IClassFixture, traits, Skip as to-do.
 12. Route groups, endpoint filters vs middleware, rate limiting (token bucket, 429), route constraints, 404 vs 405.
+13. Contract-first parallel work, pattern matching (`is { } x`), collection expressions, record equality in tests.

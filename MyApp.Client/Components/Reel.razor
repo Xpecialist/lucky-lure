@@ -1,11 +1,12 @@
 @*
-    One reel window. Three visual modes, all animated by CSS only:
+    One reel window. Visual modes, all animated by CSS only:
       - Spinning: a looping strip (cells rendered twice, translateY -50% -> 0, infinite).
                   It starts with the current symbols so the spin begins without a jump.
       - Landing:  [final cells + 3 filler cells] slides from -50% to 0 with a small overshoot.
-      - Static:   just the three cells (initial grid).
+      - Nudging:  (held reel gets new cells) [new cells + the cell that drops out] slides down one cell.
+      - Static:   just the cells.
 *@
-<div class="reel @(Dim ? "dim" : null)">
+<div class="reel @(Dim ? "dim" : null) @(Held ? "held" : null)">
     @if (Spinning)
     {
         <div class="strip looping" aria-hidden="true">
@@ -15,16 +16,17 @@
     }
     else
     {
-        <div class="strip @(LandKey > 0 ? "landing" : null)" @key="LandKey">
+        <div class="strip @animClass" @key="animKey">
             @for (var row = 0; row < Cells.Length; row++)
             {
                 @CellView(Cells[row], WinRows is { } w && row < w.Length && w[row])
             }
-            @if (LandKey > 0)
-            {
-                @foreach (var cell in tail) { @CellView(cell, false) }
-            }
+            @foreach (var cell in tail) { @CellView(cell, false) }
         </div>
+    }
+    @if (Held)
+    {
+        <span class="held-frame"><span class="held-tag">HELD</span></span>
     }
 </div>
 
@@ -32,10 +34,14 @@
     /// <summary>The three cells (top to bottom) this reel shows when stopped.</summary>
     [Parameter, EditorRequired] public Cell[] Cells { get; set; } = [];
 
+    /// <summary>True while the reel spins; true -> false plays the landing animation.</summary>
     [Parameter] public bool Spinning { get; set; }
 
-    /// <summary>Changes on every stop so the landing animation replays (0 = no animation).</summary>
-    [Parameter] public int LandKey { get; set; }
+    /// <summary>
+    /// Held for a nudge respin: shows a HELD frame, and new <see cref="Cells"/> slide in from above by one
+    /// cell (the server shifts a held reel down one row) instead of snapping.
+    /// </summary>
+    [Parameter] public bool Held { get; set; }
 
     /// <summary>Winning rows on this reel (null = none).</summary>
     [Parameter] public bool[]? WinRows { get; set; }
@@ -51,34 +57,57 @@
 
     private const int LoopFillers = 5;
     private Cell[] loop = [];
-    private Cell[] tail = [];
+    private Cell[] tail = [];      // cells rendered below the visible ones for the current animation
+    private string? animClass;     // "landing" | "nudging" | null
+    private int animKey;           // new key = new element = the CSS animation replays
 
     private bool wasSpinning;
     private Cell[]? lastCells;
-    private int lastLandKey = -1;
     private bool[]? lastWinRows;
     private bool lastDim;
+    private bool lastHeld;
     private bool dirty = true;
 
     protected override void OnParametersSet()
     {
+        var cellsChanged = lastCells is not null && !ReferenceEquals(Cells, lastCells);
+
         if (Spinning && !wasSpinning)
+        {
             loop = [.. Cells, .. Symbols.RandomCells(LoopFillers, FillerBet, FreeMode)];
+        }
         else if (!Spinning && wasSpinning)
-            tail = Symbols.RandomCells(Symbols.Rows, FillerBet, FreeMode);
+        {
+            StartAnimation("landing", Symbols.RandomCells(Symbols.Rows, FillerBet, FreeMode));
+        }
+        else if (!Spinning && Held && cellsChanged && lastCells is { Length: > 0 } previous)
+        {
+            StartAnimation("nudging", [previous[^1]]);
+        }
+        else if (cellsChanged && !Spinning)
+        {
+            StartAnimation(null, []); // new grid without an animation (e.g. initial load)
+        }
 
         // The parent re-renders often while spinning; only diff this reel when something changed.
-        dirty = Spinning != wasSpinning || !ReferenceEquals(Cells, lastCells) || LandKey != lastLandKey
-                || !ReferenceEquals(WinRows, lastWinRows) || Dim != lastDim;
+        dirty = Spinning != wasSpinning || cellsChanged || !ReferenceEquals(WinRows, lastWinRows)
+                || Dim != lastDim || Held != lastHeld;
 
         wasSpinning = Spinning;
         lastCells = Cells;
-        lastLandKey = LandKey;
         lastWinRows = WinRows;
         lastDim = Dim;
+        lastHeld = Held;
     }
 
     protected override bool ShouldRender() => dirty;
+
+    private void StartAnimation(string? cssClass, Cell[] below)
+    {
+        animClass = cssClass;
+        tail = below;
+        animKey++;
+    }
 
     private static RenderFragment CellView(Cell cell, bool win)
     {

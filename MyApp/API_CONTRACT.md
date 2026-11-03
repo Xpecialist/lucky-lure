@@ -44,6 +44,24 @@ Original fishing-themed slot. Play money only. No third-party slot names, logos 
 - After the last free spin, the feature fields in `GameState` keep their final values until the next paid spin or reset. `freeSpinsRemaining == 0` means "not in the feature".
 - Paytable keys are symbol names exactly as in the enum (`"Ten"`, not `"ten"`).
 
+### Nudge respin (base game only)
+
+A near-miss second chance at the bonus, inside one paid spin (one bet, no extra charge).
+
+- **Condition:** after a base-game grid is shown, if there are **exactly 2 Scatters** and **each** of them is in
+  row 0 (top) or row 1 (middle), a nudge respin happens. Never in free spins.
+- **Nudge:** the 2 reels holding the Scatters are **held** and shift **down one row**: row 1 → row 2, row 0 → row 1
+  (Fish keep their value), and a new random base-game symbol (never a Scatter, since the reel already has one)
+  enters at row 0. The other 3 reels **respin** completely with the normal base-game rules (≤ 1 Scatter per reel).
+- **Repeat:** the condition is checked again on the new grid. In practice the held Scatters can only qualify again
+  if both started in row 0, so there are at most **2 respins** per paid spin (the engine enforces this cap).
+- **Stop:** when the condition fails. If the final grid has 3+ Scatters, scatter pay and free spins (10/15/20)
+  are awarded exactly as for a normal trigger.
+- **Payouts:** line wins pay on **every** grid (the original and each respin). Scatter pay / free spins are
+  evaluated on the **final** grid only.
+- **Balance:** the free-spin trigger rate stays about **1 in 50 paid spins overall** (respins included) and RTP
+  94–97%; measured with `tools/LuckyLure.Sim`.
+
 ## Endpoints
 
 ### `GET /api/info` → `GameInfo`
@@ -88,9 +106,20 @@ Original fishing-themed slot. Play money only. No third-party slot names, logos 
   "freeSpinsAwarded": 0,     // > 0 only on the spin that triggers the feature
   "retriggered": false,
   "featureEnded": false,     // true on the last free spin
+  "respins": [               // nudge respins in order; [] when none (always [] in free spins)
+    {
+      "grid": [[...], ...],          // full 5 × 3 grid after this respin
+      "heldReels": [0, 3],           // the 2 reels that were held and shifted down one row
+      "lineWins": [ ...LineWin ]     // line wins on this respin's grid
+    }
+  ],
   "state": { ...GameState after this spin }
 }
 ```
+- `grid` / `lineWins` at the top level are the **original** spin.
+- `scatterCount`, `scatterWin`, `freeSpinsAwarded` refer to the **final** grid (last respin, or the original).
+- `totalWin` = all `lineWins` (original + every respin) + `scatterWin` + `collectWin`.
+
 Errors: invalid bet, insufficient balance → 400.
 
 ### `POST /api/reset` → `GameState`

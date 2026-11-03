@@ -40,7 +40,11 @@ public sealed record SpinResult(
     int FreeSpinsAwarded,
     bool Retriggered,
     bool FeatureEnded,
+    IReadOnlyList<RespinStep> Respins,
     GameState State);
+
+/// <summary>One nudge respin: the 2 scatter reels held and shifted down a row, the other reels respun.</summary>
+public sealed record RespinStep(Cell[][] Grid, int[] HeldReels, IReadOnlyList<LineWin> LineWins);
 
 public sealed record GameInfo(
     IReadOnlyList<decimal> Bets,

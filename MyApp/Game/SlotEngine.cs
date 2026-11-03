@@ -4,10 +4,11 @@ using MyApp.Shared;
 namespace MyApp.Game;
 
 // Economy (tuned with tools/LuckyLure.Sim, 20,000,000 paid spins at bet 1, features played out):
-//   free-spin trigger  1 in 50.3 paid spins
-//   RTP 95.65%  = base lines 38.08% + scatter pays 5.35% + feature 52.21% (54.6% of RTP)
-//   avg feature win 26.3x bet (avg 12.9 free spins); retrigger in 17.8% of features,
-//   x3 reached in 5.2%, x10 in 1.8%; base hit frequency 19.9%.
+//   free-spin trigger  1 in 50.2 paid spins (54.6% of triggers come via a nudge respin)
+//   nudge respins 3.95 per 100 paid spins; 32.5% of nudge sequences end in a trigger
+//   RTP 95.35%  = base lines 38.12% (incl. respin lines) + scatter pays 5.52% + feature 51.71% (54.2% of RTP)
+//   avg feature win 26.0x bet (avg 12.9 free spins); retrigger in 18.0% of features,
+//   x3 reached in 5.3%, x10 in 1.8%; base hit frequency 20.7%.
 // Re-run the sim after changing any weight, pay or chance below.
 public sealed class SlotEngine
 {
@@ -19,8 +20,10 @@ public sealed class SlotEngine
     private const int WildsPerRetrigger = 4;
     private const int RetriggerSpins = 10;
     // Chance per reel (out of 1000) that a Scatter lands in the base game.
-    // P(3+ of 5) at 13.5% ≈ 1.99% ≈ 1 in 50 spins.
-    private const int ScatterChancePerMille = 135;
+    // At 10.2%: P(3+ of 5) ≈ 0.91% directly, plus ≈ 1.09% via nudge respins ≈ 2.0% ≈ 1 in 50 paid spins.
+    private const int ScatterChancePerMille = 102;
+    // Nudge respins per paid spin. Only two held Scatters that both started in row 0 can qualify twice.
+    private const int MaxRespins = 2;
 
     private static readonly decimal[] Bets = [0.10m, 0.20m, 0.50m, 1m, 2m, 5m, 10m];
     private static readonly int[] Multipliers = [1, 2, 3, 10];
@@ -43,8 +46,8 @@ public sealed class SlotEngine
     // Pay for 3 / 4 / 5 of a kind, in line bets.
     private static readonly Dictionary<Symbol, decimal[]> Paytable = new()
     {
-        [Symbol.Ten] = [8, 30, 100],
-        [Symbol.Jack] = [8, 30, 100],
+        [Symbol.Ten] = [7, 25, 100],
+        [Symbol.Jack] = [7, 25, 100],
         [Symbol.Queen] = [10, 40, 150],
         [Symbol.King] = [15, 50, 200],
         [Symbol.Ace] = [20, 60, 250],
@@ -141,8 +144,19 @@ public sealed class SlotEngine
         var lineWins = EvaluateLines(grid, stake);
         var lineTotal = lineWins.Sum(w => w.Win);
 
+        // Nudge respins (base game only): line wins pay on every grid, scatters count on the final one.
+        List<RespinStep> respins = [];
+        var final = grid;
+        while (!free && respins.Count < MaxRespins && NudgeReels(final) is { } held)
+        {
+            final = Nudge(final, held, stake);
+            var wins = EvaluateLines(final, stake);
+            lineTotal += wins.Sum(w => w.Win);
+            respins.Add(new RespinStep(final, held, wins));
+        }
+
         var cells = grid.SelectMany(reel => reel).ToList();
-        var scatterCount = cells.Count(c => c.Symbol == Symbol.Scatter);
+        var scatterCount = final.Sum(reel => reel.Count(c => c.Symbol == Symbol.Scatter));
         var wildCount = cells.Count(c => c.Symbol == Symbol.Wild);
 
         decimal scatterWin = 0;
@@ -194,7 +208,7 @@ public sealed class SlotEngine
         return new SpinResult(
             grid, Round(stake), free, lineWins,
             scatterCount, scatterWin, wildCount, collectWin, totalWin,
-            freeSpinsAwarded, retriggered, featureEnded, Snapshot(s));
+            freeSpinsAwarded, retriggered, featureEnded, respins, Snapshot(s));
     }
 
     public GameState Reset(GameSession s)
@@ -208,20 +222,54 @@ public sealed class SlotEngine
     {
         var grid = new Cell[Reels][];
         for (var r = 0; r < Reels; r++)
+            grid[r] = GenerateReel(free, stake);
+        return grid;
+    }
+
+    private static Cell[] GenerateReel(bool free, decimal stake)
+    {
+        var reel = new Cell[Rows];
+        var scatterRow = !free && RandomNumberGenerator.GetInt32(1000) < ScatterChancePerMille
+            ? RandomNumberGenerator.GetInt32(Rows)
+            : -1;
+        for (var row = 0; row < Rows; row++)
         {
-            var reel = new Cell[Rows];
-            var scatterRow = !free && RandomNumberGenerator.GetInt32(1000) < ScatterChancePerMille
-                ? RandomNumberGenerator.GetInt32(Rows)
-                : -1;
+            reel[row] = row == scatterRow
+                ? new Cell(Symbol.Scatter, null)
+                : MakeCell(Pick(free ? FreeWeights : BaseWeights), stake);
+        }
+        return reel;
+    }
+
+    /// <summary>The 2 scatter reels if the grid qualifies for a nudge (exactly 2 Scatters, both in row 0 or 1), else null.</summary>
+    private static int[]? NudgeReels(Cell[][] grid)
+    {
+        List<int> reels = [];
+        for (var r = 0; r < Reels; r++)
+        {
             for (var row = 0; row < Rows; row++)
             {
-                reel[row] = row == scatterRow
-                    ? new Cell(Symbol.Scatter, null)
-                    : MakeCell(Pick(free ? FreeWeights : BaseWeights), stake);
+                if (grid[r][row].Symbol != Symbol.Scatter)
+                    continue;
+                if (row == Rows - 1)
+                    return null; // a Scatter in the bottom row can't be nudged
+                reels.Add(r);
             }
-            grid[r] = reel;
         }
-        return grid;
+        return reels.Count == 2 ? [.. reels] : null;
+    }
+
+    /// <summary>Held reels shift down one row with a new non-Scatter symbol on top; the others respin normally.</summary>
+    private static Cell[][] Nudge(Cell[][] grid, int[] held, decimal stake)
+    {
+        var next = new Cell[Reels][];
+        for (var r = 0; r < Reels; r++)
+        {
+            next[r] = held.Contains(r)
+                ? [MakeCell(Pick(BaseWeights), stake), grid[r][0], grid[r][1]] // BaseWeights has no Scatter
+                : GenerateReel(free: false, stake);
+        }
+        return next;
     }
 
     private static Cell MakeCell(Symbol symbol, decimal stake) =>

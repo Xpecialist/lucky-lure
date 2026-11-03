@@ -24,7 +24,7 @@ public partial class Home : IAsyncDisposable
 
     private Cell[][] grid = Symbols.RandomGrid(1m);
     private readonly bool[] reelSpinning = new bool[Symbols.Reels];
-    private int spinId;
+    private readonly bool[] heldReels = new bool[Symbols.Reels]; // nudge respin (Home.Respins.cs)
     private decimal fillerBet = 1m;
     private bool fillerFree;
     private bool[][]? winMarks;
@@ -160,7 +160,6 @@ public partial class Home : IAsyncDisposable
             : "Casting…");
         fillerBet = bet;
         fillerFree = free;
-        spinId++;
         Array.Fill(reelSpinning, true);
         StateHasChanged();
 
@@ -189,10 +188,18 @@ public partial class Home : IAsyncDisposable
             await StopReelsAsync(result.Grid);
             if (disposed) return;
 
+            // 3b) Base-game nudge respins (if any) before the final result.
+            var (finalGrid, finalLines) = (result.Grid, result.LineWins);
+            if (result.Respins.Count > 0)
+            {
+                (finalGrid, finalLines) = await PlayRespinsAsync(result);
+                if (disposed) return;
+            }
+
             SetState(result.State);
             winAmount = result.TotalWin;
-            winMarks = WinText.Marks(result);
-            ShowMessage(WinText.Describe(result), result.TotalWin > 0 ? "win" : null);
+            winMarks = WinText.Marks(result, finalGrid, finalLines, final: true);
+            ShowMessage(WinText.Describe(result, finalLines, final: true), result.TotalWin > 0 ? "win" : null);
             if (result.FeatureEnded)
                 featureWinOverride = Math.Max(Math.Round(result.State.FreeSpinWin, 2), Math.Round(prevState.FreeSpinWin + result.TotalWin, 2));
             StateHasChanged();
@@ -222,15 +229,19 @@ public partial class Home : IAsyncDisposable
         ScheduleNext();
     }
 
+    /// <summary>Stops the reels that are spinning, left to right, on <paramref name="target"/>.</summary>
     private async Task StopReelsAsync(Cell[][] target)
     {
         grid = (Cell[][])grid.Clone(); // keep the caller's previous grid intact
+        var first = true;
         for (var r = 0; r < Symbols.Reels; r++)
         {
+            if (!reelSpinning[r]) continue;
+            if (!first && !reducedMotion) await Task.Delay(StopGapMs);
+            first = false;
             grid[r] = target[r];
             reelSpinning[r] = false;
             StateHasChanged();
-            if (!reducedMotion && r < Symbols.Reels - 1) await Task.Delay(StopGapMs);
         }
         if (!reducedMotion) await Task.Delay(LandMs);
     }
@@ -238,6 +249,7 @@ public partial class Home : IAsyncDisposable
     private async Task FailSpinAsync(string error, bool refresh)
     {
         Array.Fill(reelSpinning, false);
+        Array.Fill(heldReels, false);
         busy = false;
         featureWinOverride = null;
         CancelNextSpin();

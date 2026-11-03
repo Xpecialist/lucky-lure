@@ -68,6 +68,33 @@ public class SpinInvariantTests
         Assert.True(free > 0 && paid > 0);
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void NudgeRespins_FollowTheRules_IncludingTheCap(int respins)
+    {
+        // Makes sure the invariants above really see nudges: find a spin with this many respins and check it all.
+        var session = Play.RichSession();
+        var paylines = _engine.Info().Paylines;
+
+        var before = _engine.Snapshot(session);
+        var r = Play.Until(_engine, session, 1m, x =>
+        {
+            var hit = !x.WasFreeSpin && x.Respins.Count == respins;
+            if (!hit)
+            {
+                session.ClearFeature(); // stay in the base game
+                before = _engine.Snapshot(session);
+            }
+            return hit;
+        }, maxSpins: 200_000);
+
+        SpinChecks.Grid(r);
+        SpinChecks.Money(r);
+        SpinChecks.Transition(before, 1m, r);
+        SpinChecks.LineWins(r, paylines);
+    }
+
     [Fact]
     public void PlayingFromStartingBalance_BalanceNeverGoesNegative()
     {

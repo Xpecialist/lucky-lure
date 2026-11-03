@@ -35,6 +35,43 @@
     animation: reel-land .3s both;
 }
 
+/* Nudge: [new x3 + dropped x1] starts on the old view (-25%) and slides down exactly one cell. */
+.strip.nudging {
+    animation: reel-nudge .3s both;
+}
+
+@keyframes reel-nudge {
+    0%   { transform: translate3d(0, -25%, 0); animation-timing-function: cubic-bezier(.35, .1, .4, 1); }
+    80%  { transform: translate3d(0, 1.5%, 0); animation-timing-function: ease-in-out; }
+    100% { transform: translate3d(0, 0, 0); }
+}
+
+/* ---------- held reel (nudge respin) ---------- */
+.held-frame {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    border: 3px solid var(--gold);
+    border-radius: 6px;
+    box-shadow: inset 0 0 12px rgba(244, 200, 79, .8), 0 0 10px rgba(244, 200, 79, .7);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.held-tag {
+    margin-top: -1px;
+    padding: 1px 6px 2px;
+    border-radius: 0 0 6px 6px;
+    background: linear-gradient(180deg, var(--gold-light), var(--gold));
+    color: #3b2400;
+    font-size: max(9px, calc(var(--cell) * .12));
+    font-weight: 900;
+    letter-spacing: 1px;
+    line-height: 1.2;
+}
+
 @keyframes reel-loop {
     from { transform: translate3d(0, -50%, 0); }
     to   { transform: translate3d(0, 0, 0); }
@@ -135,6 +172,6 @@
 @media (prefers-reduced-motion: reduce) {
     /* No scrolling: show the previous symbols faded while waiting, then the result. */
     .strip.looping { animation: none; transform: translate3d(0, -50%, 0); opacity: .5; }
-    .strip.landing, .cell.win { animation: none; }
+    .strip.landing, .strip.nudging, .cell.win { animation: none; }
     .cell { transition: none; }
 }

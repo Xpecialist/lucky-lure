@@ -27,10 +27,24 @@ public sealed class GameClient(HttpClient http)
             () => http.PostAsJsonAsync("api/spin", new SpinRequest(bet), Json.SpinRequest),
             Json.SpinResult);
 
-        if (result.Grid is not { Length: Reels } || result.Grid.Any(col => col is not { Length: Rows }) || result.State is null)
+        // Older servers / null JSON: treat a missing "respins" as none.
+        result = result with
+        {
+            LineWins = result.LineWins ?? [],
+            Respins = result.Respins ?? [],
+        };
+
+        if (!IsValidGrid(result.Grid) || result.State is null || result.Respins.Any(step => !IsValidStep(step)))
             throw new ApiException("Unexpected response from server.");
         return result;
     }
+
+    private static bool IsValidGrid(Cell[][]? grid) =>
+        grid is { Length: Reels } && grid.All(col => col is { Length: Rows });
+
+    private static bool IsValidStep(RespinStep? step) =>
+        step is not null && IsValidGrid(step.Grid) && step.LineWins is not null
+        && step.HeldReels is { Length: > 0 } && step.HeldReels.All(r => r is >= 0 and < Reels);
 
     private static async Task<T> SendAsync<T>(Func<Task<HttpResponseMessage>> send, JsonTypeInfo<T> type)
     {
