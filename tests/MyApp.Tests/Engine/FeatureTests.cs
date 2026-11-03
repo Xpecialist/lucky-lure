@@ -3,7 +3,7 @@ namespace MyApp.Tests.Engine;
 /// <summary>Free-spin feature flow. State is arranged through GameSession's public setters.</summary>
 public class FeatureTests
 {
-    private readonly SlotEngine _engine = new();
+    private readonly SlotEngine _engine = new(new CryptoRandomSource());
 
     [Fact]
     public void TriggerSpins_AwardFreeSpinsByScatterCount()

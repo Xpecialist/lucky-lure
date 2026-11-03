@@ -1,12 +1,14 @@
 // Monte-Carlo check of the Lucky Lure economy. Drives the real SlotEngine/GameSession:
 // paid spins at bet 1, every triggered feature is played out to the end.
-// Usage: dotnet run -c Release --project tools/LuckyLure.Sim [-- <paidSpins> [threads]]
+// Usage: dotnet run -c Release --project tools/LuckyLure.Sim [-- <paidSpins> [threads] [fast]]
+// Default RNG is the production CryptoRandomSource; "fast" uses Random.Shared (same distribution, quicker).
 using System.Diagnostics;
 using MyApp.Game;
 
 var spins = args.Length > 0 ? long.Parse(args[0]) : 2_000_000;
 var threads = args.Length > 1 ? int.Parse(args[1]) : Environment.ProcessorCount;
-var engine = new SlotEngine();
+var fast = args.Length > 2 && args[2] == "fast";
+var engine = new SlotEngine(fast ? new SharedRandomSource() : new CryptoRandomSource());
 var sw = Stopwatch.StartNew();
 
 var parts = new Stats[threads];
@@ -22,7 +24,7 @@ var staked = (decimal)total.PaidSpins; // bet 1 per paid spin
 string Pct(decimal v) => $"{v * 100:0.00}%";
 string Ratio(long n, long d) => d == 0 ? "n/a" : $"{(double)n / d * 100:0.00}%";
 
-Console.WriteLine($"Paid spins          : {total.PaidSpins:N0}  (+{total.FreeSpins:N0} free spins, {threads} threads, {sw.Elapsed.TotalSeconds:0.0}s)");
+Console.WriteLine($"Paid spins          : {total.PaidSpins:N0}  (+{total.FreeSpins:N0} free spins, {threads} threads, {(fast ? "Random.Shared" : "crypto")} RNG, {sw.Elapsed.TotalSeconds:0.0}s)");
 Console.WriteLine($"Features triggered  : {total.Features:N0}  = 1 in {(double)total.PaidSpins / Math.Max(1, total.Features):0.0} paid spins");
 Console.WriteLine($"Nudge respins       : {(double)total.Respins / total.PaidSpins * 100:0.00} per 100 paid spins  ({Ratio(total.RespinSequences, total.PaidSpins)} of paid spins nudge)");
 Console.WriteLine($"  sequences -> trig.: {Ratio(total.RespinTriggers, total.RespinSequences)}   triggers via respin: {Ratio(total.RespinTriggers, total.Features)}");
@@ -73,6 +75,12 @@ static Stats Run(SlotEngine engine, long quota)
         st.MaxFeatureWin = Math.Max(st.MaxFeatureWin, s.FeatureWin);
     }
     return st;
+}
+
+/// <summary>Thread-safe and fast, not cryptographic. Fine for measuring the math; production uses CryptoRandomSource.</summary>
+sealed class SharedRandomSource : IRandomSource
+{
+    public int Next(int maxExclusive) => Random.Shared.Next(maxExclusive);
 }
 
 sealed class Stats

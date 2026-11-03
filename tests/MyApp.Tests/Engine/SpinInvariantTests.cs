@@ -9,7 +9,7 @@ public class SpinInvariantTests
     private const int SpinsPerBet = 1_500;
     private const int AccountingSpins = 20_000;
 
-    private readonly SlotEngine _engine = new();
+    private readonly SlotEngine _engine = new(new CryptoRandomSource());
 
     [Theory]
     [MemberData(nameof(Contract.AllBets), MemberType = typeof(Contract))]

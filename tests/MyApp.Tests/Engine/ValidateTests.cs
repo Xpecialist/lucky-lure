@@ -2,7 +2,7 @@ namespace MyApp.Tests.Engine;
 
 public class ValidateTests
 {
-    private readonly SlotEngine _engine = new();
+    private readonly SlotEngine _engine = new(new CryptoRandomSource());
 
     [Theory]
     [MemberData(nameof(Contract.AllBets), MemberType = typeof(Contract))]

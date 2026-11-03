@@ -47,6 +47,8 @@ public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("samesite=strict", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("path=/", cookie, StringComparison.OrdinalIgnoreCase);
+        // The factory runs in Development over http, where the cookie must not be Secure (or the browser drops it).
+        Assert.DoesNotContain("secure", cookie, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -159,7 +161,7 @@ public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(1000m, state!.Balance); // nothing was charged
     }
 
-    [Fact(Skip = "Known REVIEW S3: a malformed JSON body returns 400 without the { error } body. Un-skip when S3 is fixed.")]
+    [Fact]
     public async Task PostSpin_MalformedJson_Returns400WithErrorMessage()
     {
         var response = await NewPlayer().PostAsync("/api/spin",

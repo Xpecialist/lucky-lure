@@ -2,7 +2,7 @@ namespace MyApp.Tests.Engine;
 
 public class InfoAndResetTests
 {
-    private readonly SlotEngine _engine = new();
+    private readonly SlotEngine _engine = new(new CryptoRandomSource());
 
     [Fact]
     public void Info_MatchesContract()
