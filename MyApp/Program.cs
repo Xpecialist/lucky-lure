@@ -13,8 +13,9 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 
 var app = builder.Build();
 
-app.UseDefaultFiles();
-app.UseStaticFiles();
+// Lets the browser debug the C# client code while developing.
+if (app.Environment.IsDevelopment())
+    app.UseWebAssemblyDebugging();
 
 // Attach (or create) the player's session for every API request.
 app.Use(async (ctx, next) =>
@@ -67,6 +68,14 @@ app.MapPost("/api/reset", (HttpContext ctx, SlotEngine engine) =>
     lock (session)
         return engine.Reset(session);
 });
+
+// Unknown /api/* paths are a plain 404, never the client page.
+app.MapFallback("/api/{**path}", () => Results.NotFound());
+
+// The Blazor client: its static files (fingerprinted _framework/*, css, js), and index.html
+// for every other route so client-side navigation and page reloads work.
+app.MapStaticAssets();
+app.MapFallbackToFile("index.html");
 
 app.Run();
 

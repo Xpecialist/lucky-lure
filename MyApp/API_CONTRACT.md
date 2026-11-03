@@ -1,7 +1,7 @@
 # Lucky Lure — API contract
 
 Shared agreement between the backend (ASP.NET Core, `Program.cs` + `Game/`) and the
-frontend (`wwwroot/`). Neither side changes this file on its own; propose changes instead.
+frontend (`MyApp.Client`, Blazor WebAssembly hosted by the server). Neither side changes this file on its own; propose changes instead.
 
 Original fishing-themed slot. Play money only. No third-party slot names, logos or assets.
 
