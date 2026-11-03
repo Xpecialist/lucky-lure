@@ -41,7 +41,14 @@ public sealed record SpinResult(
     bool Retriggered,
     bool FeatureEnded,
     IReadOnlyList<RespinStep> Respins,
+    NetCast? Net,
     GameState State);
+
+[JsonConverter(typeof(JsonStringEnumConverter<NetSize>))]
+public enum NetSize { Small, Big }
+
+/// <summary>Free-spin net cast: non-Wild cells turned into Fish. <see cref="Grid"/> is the grid after the transform.</summary>
+public sealed record NetCast(NetSize Size, int[][] Positions, Cell[][] Grid);
 
 /// <summary>One nudge respin: the 2 scatter reels held and shifted down a row, the other reels respun.</summary>
 public sealed record RespinStep(Cell[][] Grid, int[] HeldReels, IReadOnlyList<LineWin> LineWins);

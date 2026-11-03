@@ -226,7 +226,7 @@ public sealed class SlotEngine(IRandomSource rng)
         return new SpinResult(
             grid, Round(stake), free, lineWins,
             scatterCount, scatterWin, wildCount, collectWin, totalWin,
-            freeSpinsAwarded, retriggered, featureEnded, respins, Snapshot(s));
+            freeSpinsAwarded, retriggered, featureEnded, respins, Net: null, Snapshot(s));
     }
 
     public GameState Reset(GameSession s)

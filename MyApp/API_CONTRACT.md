@@ -65,6 +65,23 @@ A near-miss second chance at the bonus, inside one paid spin (one bet, no extra 
 - **Balance:** the free-spin trigger rate stays about **1 in 50 paid spins overall** (respins included) and RTP
   94–97%; measured with `tools/LuckyLure.Sim`.
 
+### Net cast (free spins only)
+
+A rescue for a fisherman with nothing to catch.
+
+- **Condition:** in a free spin, the landed grid has **at least 1 Wild** and **no Fish**.
+- **Chance:** when the condition holds, a net cast happens with a high probability (design target 40–70%, final
+  number set by the RTP tuning). Two sizes:
+  - **Small** ("NET CAST!"): **3** cells turn into Fish.
+  - **Big** ("BIG NET!"): **5** cells turn into Fish. Rarer (design target ~1 in 5 net casts).
+- **Which cells:** distinct random positions that are **not Wild** (any other symbol may transform).
+- **Values:** each new Fish gets a value from the contract set {2, 5, 10, 15, 20, 25, 50, 100} × bet, drawn from
+  the net-cast value weights (may differ from the normal Fish weights).
+- **Payouts:** if a net cast happens, **all wins of that spin** (line wins and collect) are evaluated on the
+  **transformed** grid. Wild count and the retrigger meter are unchanged by the transform (no new Wilds).
+- **Balance:** overall RTP stays 94–97% and the trigger rate ~1 in 50; other free-spin knobs (weights, fish value
+  weights) may be retuned to make room. Measured with `tools/LuckyLure.Sim`.
+
 ## Endpoints
 
 ### `GET /api/info` → `GameInfo`
@@ -116,6 +133,13 @@ A near-miss second chance at the bonus, inside one paid spin (one bet, no extra 
       "lineWins": [ ...LineWin ]     // line wins on this respin's grid
     }
   ],
+  "net": null,               // or, for a free spin with a net cast:
+                             // { "size": "Small" | "Big",
+                             //   "positions": [[reel,row], ...],   // the 3 or 5 cells that became Fish
+                             //   "grid": [[...], ...] }            // full 5 × 3 grid AFTER the transform
+                             // Top-level "grid" is still the grid the reels land on (before the transform);
+                             // when net != null, lineWins / wildCount / collectWin refer to net.grid.
+                             // Always null in the base game.
   "state": { ...GameState after this spin }
 }
 ```
