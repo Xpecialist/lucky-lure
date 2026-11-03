@@ -26,8 +26,8 @@ Review of `main` @ `700332f` (2026-11-03) by the reviewer agent. No Critical iss
 
 ## Recommended order
 1. Backend batch 1: S1 → S2 → T1 → S3 → S4.
-2. Tester (after T1): rule table tests on fixed grids, feature-flow tests, Validate, rounding,
-   `WebApplicationFactory` integration tests (400 body, cookie flags, 404/405), slow Monte-Carlo RTP test.
+2. Tester: **done for public-API tests** (`tests/MyApp.Tests`, 69 pass, 2 skipped = S2/S3).
+   After T1: add the fixed-grid rule tests listed in DEVLOG.
 3. Backend batch 2: Q2. (G1 done.)
 4. Frontend batch 1: H1 (fix A) → C5 → C1 → C2 → C3 → C7.
 5. Frontend batch 2: C4, C8; Q1 (both sides + contract proposal); Q3.

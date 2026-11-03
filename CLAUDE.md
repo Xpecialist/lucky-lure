@@ -39,6 +39,8 @@ docs/                  DEVLOG.md, REVIEW.md
 dotnet build MyApp.sln
 dotnet run --project MyApp --launch-profile http          # http://localhost:5080
 dotnet run -c Release --project tools/LuckyLure.Sim -- 2000000   # RTP sim, ~6 s
+dotnet test MyApp.sln --filter "Category!=Slow"           # fast tests, ~5 s
+dotnet test MyApp.sln                                     # incl. 1M-spin RTP test, ~13 s
 ```
 
 ## Gotchas

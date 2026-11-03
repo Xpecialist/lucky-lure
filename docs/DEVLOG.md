@@ -58,10 +58,22 @@ Newest entries at the bottom. Each entry: what changed, why, and the commit.
   average feature 26.3× bet, retrigger in 17.8% of features, ×10 reached in 1.8%. Before: RTP ≈ 1129%.
   Coordinator re-ran 2M spins: 1 in 49.7, RTP 96.18%.
 
+### Tests (tester agent)
+- Added `tests/MyApp.Tests` (xUnit 2.9.3, Microsoft.AspNetCore.Mvc.Testing 10.0.14). No production code changed.
+- 71 tests: engine validation, info/reset, grid rules, 20k-spin accounting invariants, free-spin feature
+  transitions (reference model in `SpinChecks.Transition`), line-win shape, API integration tests via
+  `WebApplicationFactory<Program>` (cookie flags, 400 `{error}`, 404, `GET /` HTML), and a slow 1M-spin RTP test
+  (`[Trait("Category","Slow")]`, last run RTP 94.87%, 1 in 50.1).
+- Result: 69 passed, 0 failed, 2 skipped on purpose (S2 405, S3 malformed-JSON body; un-skip when fixed).
+  No new bugs found.
+- Blocked on T1 (needs fixed grids / `IRandomSource` / `TimeProvider`): exact paytable table, wild-substitution
+  edge cases, multi-line totals, exact scatter pays, double retrigger in one spin, collect rounding,
+  retrigger on last free spin, SessionStore pruning.
+
 ## Where we left off
 - Next candidates (user decides): backend batch 1 from REVIEW.md (S1 sessions/rate limit, S2 405, T1 test seams,
-  S3 error bodies, S4 cookie hardening), frontend batch (H1 publish fix, C5 bet text, C1–C3/C7 client races),
-  then the tester (xUnit unit tests, WebApplicationFactory integration tests, RTP test).
+  S3 error bodies, S4 cookie hardening), frontend batch (H1 publish fix, C5 bet text, C1–C3/C7 client races).
+  After T1: tester adds the blocked deterministic tests.
 - Later: SVG symbol art, persistent sessions (database), deploy.
 
 ## .NET briefs given to the user
@@ -75,3 +87,4 @@ Newest entries at the bottom. Each entry: what changed, why, and the commit.
 8. Hosting Blazor WASM: SPA fallback, routing order, MapStaticAssets fingerprinting, environments, build/run/publish.
 9. Code review lessons: never trust the client, scoped middleware, testability seams, async discipline, RTP.
 10. Monte-Carlo simulation, reusing business logic, multi-threading, Release vs Debug, variance.
+11. Testing: xUnit Fact/Theory, invariant testing, WebApplicationFactory + IClassFixture, traits, Skip as to-do.
