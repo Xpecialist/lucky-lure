@@ -1,4 +1,5 @@
 using MyApp.Client.Game;
+using MyApp.Client.Services;
 using MyApp.Shared;
 
 namespace MyApp.Client.Pages;
@@ -23,6 +24,8 @@ public partial class Home
 
         var rollMs = tier == WinTier.Mega ? 2600 : 1600;
         celebration = new CelebrationModel(tier, result.TotalWin, rollMs);
+        Sound.Play(tier == WinTier.Mega ? Sfx.MegaWin : Sfx.BigWin);
+        if (!reducedMotion) Sound.Play(Sfx.RollTicks, rollMs);
         StateHasChanged();
         await celebrationGate.WaitAsync(reducedMotion ? 1500 : rollMs + 1400);
         celebration = null;
@@ -37,6 +40,7 @@ public partial class Home
         traceLines = null;
         boatMarks = WinText.ScatterMarks(finalGrid, AllReels);
         ShowMessage($"{count} BOATS! The fish are biting…", "win");
+        Sound.Play(Sfx.Boats3);
         StateHasChanged();
         await PauseAsync(BoatPartyMs);
     }

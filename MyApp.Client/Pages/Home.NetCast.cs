@@ -1,4 +1,5 @@
 using MyApp.Client.Game;
+using MyApp.Client.Services;
 using MyApp.Shared;
 
 namespace MyApp.Client.Pages;
@@ -33,6 +34,7 @@ public partial class Home
         netCast = net;
         netShake = big && !reducedMotion;
         ShowMessage(big ? "BIG NET! The fisherman hauls in a huge catch…" : "NET CAST! The fisherman throws his net…", "win");
+        Sound.Play(Sfx.NetCast, big ? 1 : 0);
         StateHasChanged();
         var skipped = await celebrationGate.WaitAsync(reducedMotion ? ReducedPauseMs : big ? BigNetBuildUpMs : NetBuildUpMs);
 
@@ -55,6 +57,7 @@ public partial class Home
             netFx = (string?[][])netFx.Clone();
             netFx[reel] = fxColumn;
 
+            if (!skipped) Sound.Play(Sfx.FishLand);
             StateHasChanged();
             if (!skipped && !reducedMotion) skipped = await celebrationGate.WaitAsync(NetPopGapMs);
         }

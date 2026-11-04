@@ -60,6 +60,39 @@
     80%  { transform: translate3d(0, 1.5%, 0); animation-timing-function: ease-in-out; }
     100% { transform: translate3d(0, 0, 0); }
 }
+/* ---------- Boat tease: anticipation spin ---------- */
+/* Outer glow is the reel's own box-shadow (not clipped by paint containment); inside, a gold frame pulses
+   (opacity) and a light band sweeps down (transform) — both compositor-only. */
+.reel.tease { box-shadow: inset 0 0 0 1px rgba(0,0,0,.25), 0 0 0 2px #ffd76a, 0 0 16px 3px rgba(255, 200, 80, .85); }
+.tease-frame {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    overflow: hidden;
+    border-radius: 6px;
+    border: 3px solid #ffe08a;
+    box-shadow: inset 0 0 16px rgba(255, 200, 80, .9);
+    animation: tease-pulse .5s ease-in-out infinite alternate;
+}
+.tease-sweep {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 40%;
+    background: linear-gradient(180deg, transparent, rgba(255, 244, 200, .55), transparent);
+    animation: tease-sweep .7s linear infinite;
+}
+@keyframes tease-pulse {
+    from { opacity: .55; }
+    to   { opacity: 1; }
+}
+@keyframes tease-sweep {
+    from { transform: translate3d(0, -100%, 0); }
+    to   { transform: translate3d(0, 250%, 0); }
+}
+
 /* ---------- held reel (nudge respin): a rope loop around the Boat ---------- */
 /* Lives inside the Boat's cell, so it slides down with the strip during the nudge. */
 .rope {
@@ -327,4 +360,6 @@
     .rope.fade { animation: none; opacity: 0; }
     .cell.collector .art, .cell.sparkle::after { animation: none; }
     .cell .val { transition: none; }
+    .tease-frame { animation: none; }
+    .tease-sweep { display: none; }
 }

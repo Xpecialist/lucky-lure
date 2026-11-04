@@ -1,0 +1,64 @@
+@* Sound: mute (brass bell), music on/off, volume slider. Settings persist in localStorage (sound.js). *@
+@inject SoundService Sound
+@implements IDisposable
+
+<div class="sound" role="group" aria-label="Sound">
+    <button type="button" class="snd-btn @(Sound.Muted ? "off" : null)" aria-pressed="@(Sound.Muted ? "true" : "false")"
+            aria-label="@(Sound.Muted ? "Unmute sound" : "Mute sound")" title="@(Sound.Muted ? "Unmute" : "Mute")"
+            @onclick="ToggleMute">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            @* bell *@
+            <path class="bell" d="M12 3.2c-3.2 0-5.4 2.5-5.4 5.8v4.1L4.8 16v1.2h14.4V16l-1.8-2.9V9c0-3.3-2.2-5.8-5.4-5.8Z" />
+            <circle class="bell" cx="12" cy="19.2" r="1.9" />
+            @if (Sound.Muted)
+            {
+                <path class="slash" d="M4 4 L20 20" />
+            }
+        </svg>
+    </button>
+    <button type="button" class="snd-btn @(Sound.MusicEnabled ? null : "off")" aria-pressed="@(Sound.MusicEnabled ? "true" : "false")"
+            aria-label="Free-spin music" title="Free-spin music" @onclick="ToggleMusic">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path class="note" d="M9 17.5V5.5l10-2v11.5" />
+            <circle class="bell" cx="6.8" cy="17.6" r="2.6" />
+            <circle class="bell" cx="16.8" cy="15.3" r="2.6" />
+            @if (!Sound.MusicEnabled)
+            {
+                <path class="slash" d="M4 4 L20 20" />
+            }
+        </svg>
+    </button>
+    <input class="snd-vol" type="range" min="0" max="100" step="5" aria-label="Volume"
+           value="@((int)Math.Round(Sound.Volume * 100))" @oninput="OnVolume" />
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        Sound.Changed += OnChanged;
+        await Sound.InitAsync();
+    }
+
+    private void ToggleMute()
+    {
+        Sound.SetMuted(!Sound.Muted);
+        Sound.Play(Sfx.Click);
+    }
+
+    private void ToggleMusic()
+    {
+        Sound.SetMusicEnabled(!Sound.MusicEnabled);
+        Sound.Play(Sfx.Click);
+    }
+
+    private void OnVolume(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var v))
+            Sound.SetVolume(v / 100);
+    }
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Sound.Changed -= OnChanged;
+}

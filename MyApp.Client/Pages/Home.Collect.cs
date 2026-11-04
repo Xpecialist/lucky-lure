@@ -1,5 +1,6 @@
 using Microsoft.JSInterop;
 using MyApp.Client.Game;
+using MyApp.Client.Services;
 using MyApp.Shared;
 
 namespace MyApp.Client.Pages;
@@ -57,11 +58,13 @@ public partial class Home
                 collect = new CollectModel(wr, wrow, 0m, null, false);
                 StateHasChanged();
 
+                var n = 0;
                 foreach (var (r, row) in fish)
                 {
                     var value = finalGrid[r][row].Value ?? 0m;
                     if (animate)
                     {
+                        Sound.Play(Sfx.Pluck, n++); // climbs a step per fish
                         await FlyAsync("flyValue", r, row, wr, wrow, Fmt.Money(value), FishFlightMs);
                         MarkFx(r, row, "gathered");
                         StateHasChanged();
@@ -85,6 +88,7 @@ public partial class Home
                     }
                 }
                 collect = collect with { Amount = result.CollectWin, Factor = null, Final = true };
+                if (!skipped) Sound.Play(Sfx.Kaching);
                 StateHasChanged();
                 if (!skipped && !disposed) skipped = await celebrationGate.WaitAsync(reducedMotion ? ReducedPauseMs : FinalHoldMs);
             }
@@ -101,6 +105,7 @@ public partial class Home
                 for (var i = 0; i < wilds.Count && !skipped && !disposed; i++)
                 {
                     var slot = Math.Min(prevState.WildsCollected + i, slots - 1);
+                    Sound.Play(Sfx.Twinkle);
                     await FlyAsync("flySpark", wilds[i].Reel, wilds[i].Row, slot, SparkFlightMs);
                     if (i < wilds.Count - 1)
                     {
@@ -115,6 +120,7 @@ public partial class Home
                 if (!skipped && !disposed)
                 {
                     wildsShown = prevState.WildsCollected + wilds.Count; // the last slot pops (and a plate, if reached)
+                    Sound.Play(Sfx.Slot);
                     StateHasChanged();
                     await celebrationGate.WaitAsync(450);
                 }
@@ -143,6 +149,7 @@ public partial class Home
         await Task.Delay(Math.Max(0, delayMs));
         if (!collecting || wildsShown is not int shown || count <= shown) return;
         wildsShown = count;
+        Sound.Play(Sfx.Slot);
         await InvokeAsync(StateHasChanged);
     }
 

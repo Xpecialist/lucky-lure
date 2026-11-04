@@ -14,7 +14,8 @@
     </header>
     @if (Ready)
     {
-        <FreeSpinBanner State="state!" Info="info!" FeatureWin="featureWinOverride" WildsShown="wildsShown" />
+        <FreeSpinBanner State="BannerState" Info="info!" FeatureWin="featureWinOverride" WildsShown="wildsShown"
+                        LevelUp="levelUp?.Level" LevelUpKey="levelUp?.Key ?? 0" SpinsAdded="levelUp?.Added ?? 0" />
     }
 </div>
 
@@ -31,6 +32,7 @@
                 <Reel Cells="grid[reel]"
                       Spinning="reelSpinning[reel]"
                       Held="heldReels[reel]"
+                      Tease="teaseReels[reel]"
                       WinRows="winMarks?[reel]"
                       BoatRows="boatMarks?[reel]"
                       FxRows="netFx?[reel] ?? collectFx?[reel]"
@@ -85,6 +87,7 @@
         <button class="reset-link" type="button" disabled="@(!Ready || busy || resetting)" @onclick="ResetAsync">
             Reset balance
         </button>
+        <SoundControls />
     </div>
 </section>
 </div>
@@ -93,16 +96,17 @@
 
 <footer class="footer">Lucky Lure is a game for entertainment. Balances are play money and have no cash value.</footer>
 
-@if (netCast is not null || collecting)
+@if (netCast is not null || collecting || teasing || levelUp is not null)
 {
-    @* Transparent layer: a click anywhere (or Space/Enter, via [data-skippable]) skips the net cast / collect. *@
-    <div class="skip-layer" data-skippable @onclick="celebrationGate.Skip"></div>
+    @* Transparent layer: a click anywhere (or Space/Enter, via [data-skippable]) skips the tease / net cast /
+       collect / level-up, and cuts their sounds short. *@
+    <div class="skip-layer" data-skippable @onclick="SkipFx"></div>
 }
 
 @if (celebration is not null)
 {
     <WinCelebration @key="celebration" Tier="celebration.Tier" Amount="celebration.Amount" RollMs="celebration.RollMs"
-                    ReducedMotion="reducedMotion" OnSkip="celebrationGate.Skip" />
+                    ReducedMotion="reducedMotion" OnSkip="SkipFx" />
 }
 
 @if (overlay is not null)

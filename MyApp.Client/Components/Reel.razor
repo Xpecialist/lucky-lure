@@ -6,7 +6,7 @@
       - Nudging:  (held reel gets new cells) [new cells + the cell that drops out] slides down one cell.
       - Static:   just the cells.
 *@
-<div class="reel @(Dim ? "dim" : null) @(Held ? "held" : null)">
+<div class="reel @(Dim ? "dim" : null) @(Held ? "held" : null) @(Tease ? "tease" : null)">
     @if (Spinning)
     {
         <div class="strip looping" aria-hidden="true">
@@ -24,6 +24,11 @@
             @foreach (var cell in tail) { @CellView(cell, null) }
         </div>
     }
+    @if (Tease)
+    {
+        @* Boat tease: glowing frame + a light sweep running down the reel while it spins longer. *@
+        <span class="tease-frame" aria-hidden="true"><span class="tease-sweep"></span></span>
+    }
 </div>
 
 @code {
@@ -39,6 +44,9 @@
     /// The rope is part of the Boat's cell, so it slides down with it; it fades when the hold ends.
     /// </summary>
     [Parameter] public bool Held { get; set; }
+
+    /// <summary>Boat tease: this reel spins longer with a glowing frame (2 Boats are already showing).</summary>
+    [Parameter] public bool Tease { get; set; }
 
     /// <summary>Winning rows on this reel (null = none).</summary>
     [Parameter] public bool[]? WinRows { get; set; }
@@ -75,6 +83,7 @@
     private string?[]? lastFxRows;
     private bool lastDim;
     private bool lastHeld;
+    private bool lastTease;
     private bool dirty = true;
 
     protected override void OnParametersSet()
@@ -110,7 +119,7 @@
 
         // The parent re-renders often while spinning; only diff this reel when something changed.
         dirty = Spinning != wasSpinning || cellsChanged || !ReferenceEquals(WinRows, lastWinRows) || !ReferenceEquals(BoatRows, lastBoatRows) || !ReferenceEquals(FxRows, lastFxRows)
-                || Dim != lastDim || Held != lastHeld;
+                || Dim != lastDim || Held != lastHeld || Tease != lastTease;
 
         wasSpinning = Spinning;
         lastCells = Cells;
@@ -119,6 +128,7 @@
         lastFxRows = FxRows;
         lastDim = Dim;
         lastHeld = Held;
+        lastTease = Tease;
     }
 
     protected override bool ShouldRender() => dirty;

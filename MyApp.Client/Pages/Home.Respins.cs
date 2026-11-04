@@ -1,4 +1,5 @@
 using MyApp.Client.Game;
+using MyApp.Client.Services;
 using MyApp.Shared;
 
 namespace MyApp.Client.Pages;
@@ -45,9 +46,11 @@ public partial class Home
                 else reelSpinning[r] = true;
             }
             fillerFree = false;
+            Sound.Play(Sfx.Nudge);
+            Sound.StartLoop(SfxLoop.Whirr);
             StateHasChanged();
             await Task.Delay(reducedMotion ? 0 : MinSpinMs);
-            await StopReelsAsync(step.Grid);
+            await StopReelsAsync(step.Grid, tease: true); // 2 held Boats: the respinning reels tease the 3rd
 
             Array.Fill(heldReels, false);
             won += step.LineWins.Sum(w => w.Win);
@@ -65,6 +68,8 @@ public partial class Home
         winMarks = WinText.Marks(result, stageGrid, lineWins, final: false);
         ShowTrace(lineWins);
         ShowMessage(WinText.Describe(result, lineWins, final: false), lineWins.Count > 0 ? "win" : null);
+        var stageWin = lineWins.Sum(w => w.Win);
+        if (stageWin > 0) Sound.Play(Sfx.LineWin, (double)(stageWin / Math.Max(result.Bet, 0.01m)));
         StateHasChanged();
         await PauseAsync(StagePauseMs);
     }

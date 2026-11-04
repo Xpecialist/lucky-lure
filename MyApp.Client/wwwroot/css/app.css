@@ -365,6 +365,11 @@ body {
   font-size: 13px;
 }
 .reset-link:disabled { opacity: .4; cursor: not-allowed; }
+/* Sound controls (Components/SoundControls.razor): own row under SPIN on phones, last in the side column. */
+.actions > .sound { flex-basis: 100%; }
+@media (min-width: 900px) and (orientation: landscape) {
+  .cabinet .actions > .sound { flex-basis: auto; }
+}
 
 button:focus-visible { outline: 3px solid var(--gold-light); outline-offset: 2px; }
 

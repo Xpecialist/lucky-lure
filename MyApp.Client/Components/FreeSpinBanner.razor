@@ -1,8 +1,19 @@
 <section class="fs-banner" aria-live="polite">
     <div class="fs-head">FREE SPINS</div>
     <div class="fs-stats">
-        <div class="fs-stat"><span class="fs-label">Spins left</span><span class="fs-value">@State.FreeSpinsRemaining / @State.FreeSpinsTotal</span></div>
-        <div class="fs-stat"><span class="fs-label">Multiplier</span><span class="fs-value">×@State.Multiplier</span></div>
+        <div class="fs-stat">
+            <span class="fs-label">Spins left</span>
+            <span class="fs-value">@State.FreeSpinsRemaining / @State.FreeSpinsTotal</span>
+            @if (Bursting && SpinsAdded > 0)
+            {
+                <span class="fs-plus" @key="LevelUpKey" aria-hidden="true">+@SpinsAdded</span>
+            }
+        </div>
+        <div class="fs-stat">
+            <span class="fs-label">Multiplier</span>
+            @* A new element per level-up (key) so the pop animation replays. *@
+            <span class="fs-value @(Bursting ? "levelup" : null)" @key="Bursting ? LevelUpKey : 0">×@State.Multiplier</span>
+        </div>
         <div class="fs-stat"><span class="fs-label">Feature win</span><span class="fs-value">@Fmt.Money(FeatureWin ?? State.FreeSpinWin)</span></div>
     </div>
 
@@ -18,7 +29,12 @@
                 </span>
             }
             var lit = Filled >= (g + 1) * PerRetrigger;
-            <span class="fs-plate @(lit ? "lit" : null) @(lit && g >= platePopFrom ? "pop" : null)">
+            var burst = Bursting && LevelUp == g;
+            <span class="fs-plate @(lit ? "lit" : null) @(lit && g >= platePopFrom ? "pop" : null) @(burst ? "burst" : null)">
+                @if (burst)
+                {
+                    <span class="fs-burst" @key="LevelUpKey" aria-hidden="true"></span>
+                }
                 <span class="fs-plate-spins"><b>+10</b><small>FREE SPINS</small></span>
                 <span class="fs-plate-mult">×@MultiplierAt(g + 1)</span>
             </span>
@@ -38,6 +54,17 @@
     /// its sparkle arrives). Null = use <see cref="GameState.WildsCollected"/>.
     /// </summary>
     [Parameter] public int? WildsShown { get; set; }
+
+    /// <summary>Level (0-based plate index) whose multiplier was just reached: plays the level-up burst.</summary>
+    [Parameter] public int? LevelUp { get; set; }
+
+    /// <summary>Changes for every level-up, so the burst animations replay.</summary>
+    [Parameter] public int LevelUpKey { get; set; }
+
+    /// <summary>Free spins added by the retrigger ("+10" floats up from Spins left).</summary>
+    [Parameter] public int SpinsAdded { get; set; }
+
+    private bool Bursting => LevelUp is >= 0;
 
     private int PerRetrigger => Info.WildsPerRetrigger > 0 ? Info.WildsPerRetrigger : 4;
     private int Levels => Math.Max(1, (Info.Multipliers?.Count ?? 4) - 1);

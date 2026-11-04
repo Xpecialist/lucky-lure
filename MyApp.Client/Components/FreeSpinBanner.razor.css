@@ -96,6 +96,67 @@
     .fs-plate-spins small { display: none; }
 }
 
+/* ---------- multiplier level-up burst (retrigger) ---------- */
+.fs-stat { position: relative; }
+.fs-plate { position: relative; }
+.fs-plate.burst { z-index: 2; animation: plate-burst .6s cubic-bezier(.2, 1.6, .4, 1); box-shadow: 0 0 18px 4px rgba(255, 220, 120, .95); }
+/* Rays + sparkles behind the plate (rotating conic rays, scaled out and faded: transform/opacity only). */
+.fs-burst {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 220%;
+    aspect-ratio: 1;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle, rgba(255, 255, 240, .95) 0 12%, rgba(255, 210, 90, .6) 22%, transparent 45%),
+        repeating-conic-gradient(rgba(255, 236, 160, .85) 0 7deg, transparent 7deg 22deg);
+    -webkit-mask-image: radial-gradient(circle, #000 35%, transparent 70%);
+    mask-image: radial-gradient(circle, #000 35%, transparent 70%);
+    animation: burst-rays 1.3s ease-out forwards;
+}
+@keyframes plate-burst {
+    0%   { transform: scale(1); filter: brightness(2.2); }
+    40%  { transform: scale(1.22); }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+@keyframes burst-rays {
+    0%   { transform: translate(-50%, -50%) scale(.2) rotate(0deg); opacity: 0; }
+    20%  { opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.25) rotate(50deg); opacity: 0; }
+}
+
+/* The multiplier pops to its new value with a glow; "+10" floats up from Spins left. */
+.fs-value.levelup {
+    display: inline-block;
+    color: #fff3b0;
+    text-shadow: 0 0 10px rgba(255, 210, 90, 1), 0 0 22px rgba(255, 150, 60, .9);
+    animation: mult-pop .7s cubic-bezier(.2, 1.6, .4, 1) both;
+}
+@keyframes mult-pop {
+    0%   { transform: translateY(60%) scale(.4); opacity: 0; }
+    60%  { transform: translateY(-8%) scale(1.45); opacity: 1; }
+    100% { transform: none; }
+}
+.fs-plus {
+    position: absolute;
+    right: 0;
+    top: 0;
+    font-size: 16px;
+    font-weight: 900;
+    color: #b8ffd6;
+    text-shadow: 0 0 8px rgba(80, 220, 140, .9), 0 1px 1px rgba(0, 0, 0, .8);
+    pointer-events: none;
+    animation: plus-up 1.3s ease-out forwards;
+}
+@keyframes plus-up {
+    0%   { transform: translateY(10px) scale(.6); opacity: 0; }
+    25%  { transform: translateY(0) scale(1.1); opacity: 1; }
+    100% { transform: translateY(-22px); opacity: 0; }
+}
+
 @keyframes slot-pop {
     0%   { transform: scale(.6); }
     100% { transform: scale(1); }
@@ -108,4 +169,8 @@
 
 @media (prefers-reduced-motion: reduce) {
     .fs-slot.pop, .fs-plate.pop { animation: none; }
+    /* Reduced motion: a plain highlight, no flash / rays / movement. */
+    .fs-plate.burst, .fs-value.levelup { animation: none; }
+    .fs-burst { display: none; }
+    .fs-plus { animation: none; top: -14px; }
 }

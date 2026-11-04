@@ -16,6 +16,7 @@ public partial class Home : IAsyncDisposable
 
     [Inject] private GameClient Client { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
+    [Inject] private SoundService Sound { get; set; } = default!;
 
     private GameInfo? info;
     private GameState? state;
@@ -112,6 +113,15 @@ public partial class Home : IAsyncDisposable
         {
             // Collect flights are decoration; without them the totals still count up.
         }
+        await Sound.InitAsync();
+        if (InFeature) Sound.Music(true); // a feature resumed after reload (starts on the first click)
+    }
+
+    /// <summary>Click / Space during a skippable animation: jump to its end and cut its sound short.</summary>
+    private void SkipFx()
+    {
+        Sound.Cut();
+        celebrationGate.Skip();
     }
 
     [JSInvokable]
@@ -122,7 +132,7 @@ public partial class Home : IAsyncDisposable
     public void OnDismissKey()
     {
         if (overlay is not null) overlayGate.Skip();
-        else celebrationGate.Skip();
+        else SkipFx();
     }
 
     public async ValueTask DisposeAsync()
@@ -183,6 +193,8 @@ public partial class Home : IAsyncDisposable
         fillerBet = bet;
         fillerFree = free;
         Array.Fill(reelSpinning, true);
+        Sound.Play(Sfx.SpinStart);
+        Sound.StartLoop(SfxLoop.Whirr);
         StateHasChanged();
 
         // 2) Fire the request in parallel; the render above is flushed as soon as we await.
@@ -205,9 +217,9 @@ public partial class Home : IAsyncDisposable
 
         try
         {
-            // 3) Stop reels left to right on the server's grid.
+            // 3) Stop reels left to right on the server's grid (base game: Boat tease when 2 have landed).
             await minSpin;
-            await StopReelsAsync(result.Grid);
+            await StopReelsAsync(result.Grid, tease: !free);
             if (disposed) return;
 
             // 3b) Base-game nudge respins (if any) before the final result.
@@ -232,11 +244,15 @@ public partial class Home : IAsyncDisposable
                 if (disposed) return;
             }
 
+            // A retrigger's new multiplier / spins stay hidden in the banner until the level-up burst.
+            if (result.Retriggered) bannerHold = BannerHoldFor(prevState);
             SetState(result.State);
             winAmount = result.TotalWin;
             winMarks = WinText.Marks(result, finalGrid, finalLines, final: true);
             ShowTrace(finalLines);
             ShowMessage(WinText.Describe(result, finalLines, final: true), result.TotalWin > 0 ? "win" : null);
+            if (result.TotalWin > 0 && WinTiers.For(result.TotalWin, result.Bet) < WinTier.Big)
+                Sound.Play(Sfx.LineWin, (double)(result.TotalWin / Math.Max(result.Bet, 0.01m)));
             if (result.FeatureEnded)
                 featureWinOverride = Math.Max(Math.Round(result.State.FreeSpinWin, 2), Math.Round(prevState.FreeSpinWin + result.TotalWin, 2));
             StateHasChanged();
@@ -247,15 +263,19 @@ public partial class Home : IAsyncDisposable
             {
                 await CelebrateBoatsAsync(finalGrid, result.ScatterCount);
                 await ShowOverlayAsync("FREE SPINS!", $"{result.FreeSpinsAwarded} free spins", "trigger");
+                Sound.Music(true); // fades in as the first free spin starts
             }
-            // Let a retriggering / last free spin finish on screen (wins, collect) before its overlay.
-            if ((result.Retriggered || result.FeatureEnded) && !celebrated) await PauseAsync(FeatureSettleMs);
+            // Let the last free spin finish on screen (wins, collect) before its overlay; a retrigger's
+            // level-up burst (below) plays that role for a retriggering spin.
+            if (result.FeatureEnded && !result.Retriggered && !celebrated) await PauseAsync(FeatureSettleMs);
             if (result.Retriggered)
             {
                 var added = result.State.FreeSpinsTotal - prevState.FreeSpinsTotal;
                 if (added <= 0) added = 10;
+                await PlayLevelUpAsync(result.State, added);
                 await ShowOverlayAsync("RETRIGGER!", $"+{added} spins — now ×{result.State.Multiplier}", "retrigger");
             }
+            if (result.FeatureEnded) Sound.Music(false);
             if (result.FeatureEnded)
                 await ShowOverlayAsync("Feature complete", $"You won {Fmt.Money(featureWinOverride ?? 0)}", "end");
         }
@@ -272,25 +292,62 @@ public partial class Home : IAsyncDisposable
         ScheduleNext();
     }
 
-    /// <summary>Stops the reels that are spinning, left to right, on <paramref name="target"/>.</summary>
-    private async Task StopReelsAsync(Cell[][] target)
+    /// <summary>
+    /// Stops the reels that are spinning, left to right, on <paramref name="target"/>. With
+    /// <paramref name="tease"/>, a reel still spinning while exactly 2 Boats show on the stopped / held reels
+    /// gets a longer, glowing "anticipation" spin (Home.Tease.cs). Display timing only: the result is known.
+    /// </summary>
+    private async Task StopReelsAsync(Cell[][] target, bool tease = false)
     {
         grid = (Cell[][])grid.Clone(); // keep the caller's previous grid intact
         var first = true;
-        for (var r = 0; r < Symbols.Reels; r++)
+        try
         {
-            if (!reelSpinning[r]) continue;
-            if (!first && !reducedMotion) await Task.Delay(StopGapMs);
-            first = false;
-            grid[r] = target[r];
-            reelSpinning[r] = false;
-            StateHasChanged();
+            for (var r = 0; r < Symbols.Reels; r++)
+            {
+                if (!reelSpinning[r]) continue;
+                if (tease) UpdateTease();
+                if (teasing && !teaseSkipped) teaseSkipped = await celebrationGate.WaitAsync(teaseStepMs);
+                else if (!first && !reducedMotion && !teaseSkipped) await Task.Delay(StopGapMs);
+                first = false;
+                grid[r] = target[r];
+                reelSpinning[r] = false;
+                teaseReels[r] = false;
+                ReelStopSounds(r);
+                StateHasChanged();
+            }
+        }
+        finally
+        {
+            Sound.StopLoop(SfxLoop.Whirr);
+            if (teasing)
+            {
+                EndTease();
+                StateHasChanged();
+            }
         }
         if (!reducedMotion) await Task.Delay(LandMs);
     }
 
+    /// <summary>Wooden thunk for a stopped reel, plus a rising ding per Boat now showing and a bloop for Fish.</summary>
+    private void ReelStopSounds(int reel)
+    {
+        Sound.Play(Sfx.ReelStop);
+        var column = grid[reel];
+        if (column.Any(c => c.Symbol == Symbol.Fish)) Sound.Play(Sfx.FishLand);
+        if (column.Any(c => c.Symbol == Symbol.Scatter))
+        {
+            var boats = 0;
+            for (var r = 0; r < Symbols.Reels; r++)
+                if (!reelSpinning[r]) boats += grid[r].Count(c => c.Symbol == Symbol.Scatter);
+            Sound.Play(Sfx.Boat, boats);
+        }
+    }
+
     private async Task FailSpinAsync(string error, bool refresh)
     {
+        Sound.StopLoop(SfxLoop.Whirr);
+        Sound.StopLoop(SfxLoop.Tease);
         Array.Fill(reelSpinning, false);
         Array.Fill(heldReels, false);
         boatMarks = null;
@@ -301,6 +358,9 @@ public partial class Home : IAsyncDisposable
         collectFx = null;
         wildsShown = null;
         collecting = false;
+        EndTease();
+        bannerHold = null;
+        levelUp = null;
         busy = false;
         featureWinOverride = null;
         CancelNextSpin();
@@ -375,6 +435,7 @@ public partial class Home : IAsyncDisposable
     private async Task ToggleAutoAsync()
     {
         autoOn = !autoOn;
+        Sound.Play(Sfx.Click);
         if (autoOn)
         {
 
@@ -394,6 +455,12 @@ public partial class Home : IAsyncDisposable
     private async Task ShowOverlayAsync(string title, string text, string kind)
     {
         overlay = new OverlayModel(title, text, kind);
+        Sound.Play(kind switch
+        {
+            "trigger" => Sfx.StingerFree,
+            "retrigger" => Sfx.StingerRetrigger,
+            _ => Sfx.StingerEnd,
+        });
         StateHasChanged();
         await overlayGate.WaitAsync();
         overlay = null;
@@ -404,6 +471,7 @@ public partial class Home : IAsyncDisposable
     private void ChangeBet(int delta)
     {
         if (!CanChangeBet) return;
+        Sound.Play(Sfx.Click);
         var i = betIndex + delta;
         if (i >= 0 && i < BetCount) betIndex = i;
     }
@@ -411,6 +479,7 @@ public partial class Home : IAsyncDisposable
     private async Task ResetAsync()
     {
         if (busy || resetting) return;
+        Sound.Play(Sfx.Click);
         CancelNextSpin();
         StopAuto();
         resetting = true;
@@ -423,6 +492,7 @@ public partial class Home : IAsyncDisposable
             traceLines = null;
             featureWinOverride = null;
             ShowMessage($"Balance reset to {Fmt.Money(state!.Balance)}. Good luck!");
+            Sound.Music(InFeature);
         }
         catch (ApiException ex)
         {
