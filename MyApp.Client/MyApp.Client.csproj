@@ -4,7 +4,12 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>  </PropertyGroup>
+    <!-- index.html is a plain file with stable URLs (no #[.{fingerprint}] placeholders / import map): the build
+         rewrites placeholders only into its own copy of index.html, and `dotnet publish` of the hosting server
+         serves the raw file, so the published app never booted (REVIEW.md H1). Stable _framework names too. -->
+    <OverrideHtmlAssetPlaceholders>false</OverrideHtmlAssetPlaceholders>
+    <WasmFingerprintAssets>false</WasmFingerprintAssets>
+  </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.14" />
