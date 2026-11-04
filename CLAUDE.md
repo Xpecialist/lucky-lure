@@ -63,7 +63,11 @@ dotnet test MyApp.sln                                     # incl. 1M-spin RTP te
 - Keep the repo at a **short path** (e.g. `C:\Users\<you>\Desktop\LuckyLure`). Blazor WASM build outputs
   exceed Windows' 260-char path limit in deep folders.
 - Sessions are in memory: restarting the server resets everyone to 1000 credits.
-- `dotnet publish` of MyApp is broken (see REVIEW.md H1). `dotnet run` works.
+- Publish: `dotnet publish MyApp -c Release -o <folder>` works (REVIEW H1 fixed with fingerprinting off). Start the
+  published `MyApp.exe` **from its own folder** (or pass `--contentRoot`), otherwise it can't find `wwwroot` and
+  the page is blank. Publish outside the repo or into an ignored folder.
+- Sound: Web Audio synth in `MyApp.Client/wwwroot/js/sound.js` via `Services/SoundService.cs`; nothing plays
+  before the first user gesture. `window.__soundLog = []` in the console records sound calls (inert otherwise).
 - Testing seams: `IRandomSource` (inject a fake RNG), `SlotEngine.Apply(...)` (internal, hand-built grids incl.
   respin grids), `TimeProvider` in `SessionStore` (use `FakeTimeProvider`). Never add debug/cheat endpoints to
   the server; force game states only in tests or with a temporary page-side stub that isn't committed.

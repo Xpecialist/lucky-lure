@@ -189,8 +189,33 @@ Newest entries at the bottom. Each entry: what changed, why, and the commit.
   the coordinator (builder checked the rope with a stub). Known rough edges: bar is small at 360–375 px; the collect
   counter can overlap the cell above the fisherman.
 
+### Commits
+- `932be88` scene, cabinet, fish tile, rope nudge, collect animation, fisherman bar. Pushed.
+
+### Batch: Phase 2 → Phase 3 → tester → publish (user's order)
+- Phase 2 (frontend): scatter tease (`Pages/Home.Tease.cs`): with exactly 2 Boats visible and reels still
+  spinning, each remaining reel waits min(850 ms, 3000 ms ÷ reels left) with a gold glow/sweep and "One more
+  boat…"; also in nudge respins. Multiplier level-up burst (`Pages/Home.LevelUp.cs`): banner holds old values
+  until the bar fills, then plate flash + rays, multiplier pop, "+10" float, then the RETRIGGER overlay.
+- Phase 3 (frontend): Web Audio synth (`wwwroot/js/sound.js`) behind a typed `SoundService`
+  (IJSInProcessObjectReference, fire-and-forget, no timing changes); SFX for spins, reel stops, boats, tease,
+  nudge, wins/BIG/MEGA, fish, net, collect, level-up, overlays; 8-bar 6/8 sea-shanty loop in free spins;
+  `SoundControls.razor` (mute bell, music note, volume) persisted in localStorage; first-gesture unlock; skip cuts
+  SFX. An agent PowerShell edit briefly garbled …/—/× in 5 files; coordinator checked: intact.
+- Tester: 101 → **270 tests** (fixed grids via `Apply`, `ScriptedRandom`/`FuncRandom` fakes, `Grids.Parse` helper,
+  FakeTimeProvider): paytable table (66 cases), wild/fish/scatter edge cases, scatter pays, nudge cases + exact
+  shift, collect/retrigger table incl. double threshold + cap, net cast incl. real random path, rounding, session
+  TTL/refresh/prune. No production bugs. Notes: Wild-run vs symbol-run tie reports Wild (contract silent);
+  rounding never triggers with contract values.
+- Publish (REVIEW H1, Fix A): `OverrideHtmlAssetPlaceholders=false`, `WasmFingerprintAssets=false`, plain
+  `_framework/blazor.webassembly.js` tag. Root cause: the host's publish took the client's source index.html, not
+  the build-processed copy. Coordinator verified: fresh publish, index.html clean, published `MyApp.exe` run from its
+  folder in Production boots, spins, 405 for GET /api/spin, no console errors. Must start from its own folder.
+- Coordinator verified overall: build 0/0, 270/270 tests. Not judged: sound quality, animation feel.
+
 ## Where we left off
-- Next (user decides): Phase 3 sound, Phase 2 leftovers (scatter tease, multiplier-ladder burst); tester pass using the T1 seams; remaining frontend items
+- Next (user decides): deploy somewhere (e.g. Azure App Service) now that publish works; polish (bigger fisherman
+  bar on phones, collect counter overlap); contract sentence for Wild-vs-symbol ties; tester pass using the T1 seams; remaining frontend items
   H1 (publish), C1, C3, C4, C8; Q1–Q3. Title icon is still an emoji. Backend worktree `..\LuckyLure-backend`
   can be reused for the next backend branch.
   After T1: tester adds the blocked deterministic tests.
@@ -218,3 +243,5 @@ Newest entries at the bottom. Each entry: what changed, why, and the commit.
     prefers-reduced-motion, `@property` for animatable custom properties.
 17. Blazor ↔ JS split (C# sequences with async/await, JS module via IJSObjectReference for measuring/Web
     Animations API), component lifecycle (OnParametersSet to detect changes), CSS container queries.
+18. try/finally in async UI code, records `with` expressions, Web Audio + typed JS service (IJSInProcessObjectReference),
+    test doubles (fakes/scripted RNG), data-driven xUnit, build vs publish pipeline, static web assets/fingerprinting.
