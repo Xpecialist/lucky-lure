@@ -19,6 +19,49 @@
   --cell: min(100px, calc((100vw - 72px) / 5));
   --gap: 4px;
   --radius: 12px;
+  --nail: radial-gradient(circle, #f4eedf 0 1px, #9a9384 1.6px 2.3px, #3b2a1a 2.7px, transparent 3.3px);
+}
+
+/* Dock-wood and rope textures shared by the cabinet, controls and sign. Declared again on .cabinet because
+   var() inside a custom property is resolved where it is declared; this way the cabinet's mood colours apply. */
+:root, .cabinet {
+  --rope:repeating-linear-gradient(-45deg, var(--rope-1) 0 3px, var(--rope-2) 3px 6px, var(--rope-3) 6px 7px);
+  --planks:
+    repeating-linear-gradient(0deg, rgba(0,0,0,.14) 0 1px, transparent 1px 6px),
+    repeating-linear-gradient(90deg, transparent 0 46px, rgba(0,0,0,.3) 46px 48px, transparent 48px 50px, rgba(255,255,255,.06) 50px 52px),
+    linear-gradient(180deg, var(--plank-1), var(--plank-2) 55%, var(--plank-3));
+}
+
+/* Palette for the cabinet. Registered (@property) so the free-spin switch can transition these colours
+   smoothly over 1 s instead of snapping (unregistered custom properties can't be interpolated). */
+@property --rope-1  { syntax: "<color>"; inherits: true; initial-value: #ead6a6; }
+@property --rope-2  { syntax: "<color>"; inherits: true; initial-value: #b98b4f; }
+@property --rope-3  { syntax: "<color>"; inherits: true; initial-value: #6e4a22; }
+@property --plank-1 { syntax: "<color>"; inherits: true; initial-value: #9c6a3c; }
+@property --plank-2 { syntax: "<color>"; inherits: true; initial-value: #74461f; }
+@property --plank-3 { syntax: "<color>"; inherits: true; initial-value: #45280f; }
+@property --trim    { syntax: "<color>"; inherits: true; initial-value: #f4c84f; }
+@property --glow    { syntax: "<color>"; inherits: true; initial-value: rgba(120, 200, 255, .18); }
+@property --spin-1  { syntax: "<color>"; inherits: true; initial-value: #fff0b0; }
+@property --spin-2  { syntax: "<color>"; inherits: true; initial-value: #f4c84f; }
+@property --spin-3  { syntax: "<color>"; inherits: true; initial-value: #c08a17; }
+
+.cabinet {
+  transition: --rope-1 1s, --rope-2 1s, --rope-3 1s, --plank-1 1s, --plank-2 1s, --plank-3 1s,
+              --trim 1s, --glow 1s, --spin-1 1s, --spin-2 1s, --spin-3 1s;
+}
+.cabinet.fs-mood {
+  --rope-1: #ffeaa8;
+  --rope-2: #e2a23a;
+  --rope-3: #94580f;
+  --plank-1: #b0643a;
+  --plank-2: #85391e;
+  --plank-3: #4f1b0c;
+  --trim: #ffb44c;
+  --glow: rgba(255, 150, 60, .6);
+  --spin-1: #ffe3b4;
+  --spin-2: #ff9d42;
+  --spin-3: #c4521b;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -31,34 +74,12 @@ body {
   overflow-x: hidden;
   color: var(--ink);
   font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
-  background:
-    radial-gradient(ellipse at 50% -10%, rgba(120, 200, 255, .35), transparent 55%),
-    linear-gradient(180deg, var(--water-light) 0%, var(--water) 35%, var(--water-deep) 100%);
+  /* Fallback while booting; the game page draws its own lake scene (Components/Scene.razor) on top. */
+  background: linear-gradient(180deg, var(--water-light) 0%, var(--water) 35%, var(--water-deep) 100%) fixed;
   background-color: var(--water-deep);
-  background-attachment: fixed;
 }
 
-/* Drifting bubbles */
-.bubbles {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background-image:
-    radial-gradient(circle at 10% 80%, rgba(255,255,255,.18) 0 4px, transparent 5px),
-    radial-gradient(circle at 25% 40%, rgba(255,255,255,.12) 0 3px, transparent 4px),
-    radial-gradient(circle at 70% 70%, rgba(255,255,255,.15) 0 5px, transparent 6px),
-    radial-gradient(circle at 85% 25%, rgba(255,255,255,.12) 0 3px, transparent 4px),
-    radial-gradient(circle at 55% 90%, rgba(255,255,255,.14) 0 2px, transparent 3px),
-    radial-gradient(circle at 40% 15%, rgba(255,255,255,.1) 0 4px, transparent 5px);
-  background-size: 100% 100%;
-  animation: bubbles 14s linear infinite;
-}
-@keyframes bubbles {
-  from { background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; }
-  to   { background-position: 0 -100vh, 0 -100vh, 0 -100vh, 0 -100vh, 0 -100vh, 0 -100vh; }
-}
-
+/* .app is a stacking context (z-index 1), so the scene's z-index -1 stays above the body but under the game. */
 .app {
   position: relative;
   z-index: 1;
@@ -69,14 +90,38 @@ body {
 
 /* Header + FREE SPINS banner stacked in one grid cell: the slot is always as tall as the taller of the two,
    so showing / hiding the banner never shifts the reels. */
-.masthead { display: grid; }
+.masthead { display: grid; margin-bottom: 26px; /* room for the fishing rod over the frame */ }
 .masthead > * { grid-area: 1 / 1; align-self: center; }
 .masthead > .fs-banner { width: 100%; visibility: hidden; }
 .masthead.feature > .fs-banner { visibility: visible; }
 .masthead.feature > .header { visibility: hidden; }
 
-/* Header */
-.header { text-align: center; margin-bottom: 10px; }
+/* Header: a carved wooden sign hanging from two ropes. */
+.header {
+  position: relative;
+  justify-self: center;
+  max-width: 100%;
+  margin: 16px 0 0;
+  padding: 4px 22px 7px;
+  text-align: center;
+  border: 3px solid var(--plank-3);
+  border-radius: 12px;
+  background: var(--nail) left 4px top 4px / 8px 8px no-repeat, var(--nail) right 4px top 4px / 8px 8px no-repeat,
+              var(--nail) left 4px bottom 4px / 8px 8px no-repeat, var(--nail) right 4px bottom 4px / 8px 8px no-repeat,
+              var(--planks);
+  box-shadow: inset 0 1px 0 rgba(255, 230, 180, .35), inset 0 -3px 6px rgba(0, 0, 0, .35), 0 8px 16px rgba(0, 0, 0, .45);
+}
+.header::before, .header::after {
+  content: "";
+  position: absolute;
+  top: -19px;
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--rope);
+}
+.header::before { left: 22%; }
+.header::after { right: 22%; }
 .title {
   margin: 0;
   font-family: Georgia, "Times New Roman", serif;
@@ -92,32 +137,44 @@ body {
 }
 .title-hook { -webkit-text-fill-color: initial; font-size: .8em; }
 .play-note {
-  margin: 2px 0 0;
+  margin: 0;
   font-size: 12px;
-  color: var(--ink-dim);
+  color: #f6e6c8;
   letter-spacing: .5px;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, .6);
 }
 
-/* Machine frame */
+/* Machine frame: dock planks with nails, rope wrapped around the outside (the 5px border), corner lashings,
+   rod and life ring (Components/FrameDeco.razor). Border + padding = 16px per side, as the layout expects. */
 .machine { display: flex; flex-direction: column; align-items: center; }
 .frame {
-  padding: 8px;
-  border: 8px solid var(--wood);
-  border-radius: 18px;
-  border-color: var(--wood-light) var(--wood) var(--wood-dark) var(--wood);
+  position: relative;
+  padding: 11px;
+  border: 5px solid transparent;
+  border-radius: 20px;
   background:
-    repeating-linear-gradient(90deg, rgba(0,0,0,.08) 0 2px, transparent 2px 14px),
-    linear-gradient(180deg, var(--wood-light), var(--wood) 60%, var(--wood-dark));
+    var(--nail) left 26% top 1.5px / 8px 8px no-repeat padding-box,
+    var(--nail) left 74% top 1.5px / 8px 8px no-repeat padding-box,
+    var(--nail) left 26% bottom 1.5px / 8px 8px no-repeat padding-box,
+    var(--nail) left 74% bottom 1.5px / 8px 8px no-repeat padding-box,
+    var(--nail) left 1.5px top 50% / 8px 8px no-repeat padding-box,
+    var(--nail) right 1.5px top 50% / 8px 8px no-repeat padding-box,
+    repeating-linear-gradient(0deg, rgba(0,0,0,.14) 0 1px, transparent 1px 5px) padding-box,
+    repeating-linear-gradient(90deg, transparent 0 58px, rgba(0,0,0,.32) 58px 60px, rgba(255,255,255,.07) 60px 62px) padding-box,
+    linear-gradient(180deg, var(--plank-1), var(--plank-2) 55%, var(--plank-3)) padding-box,
+    var(--rope) border-box;
   box-shadow:
-    0 0 0 2px var(--gold-dark),
-    0 0 0 4px var(--gold),
-    0 12px 30px rgba(0,0,0,.55);
+    0 0 0 1px rgba(0, 0, 0, .55),
+    0 0 28px var(--glow),
+    0 14px 30px rgba(0, 0, 0, .6);
 }
 .reels {
   position: relative; /* the payline trace is laid over the reels */
   display: flex;
   gap: var(--gap);
   border-radius: 8px;
+  background: #0b2a40;                      /* dark water between the reel drums */
+  box-shadow: 0 0 0 3px #1c0f06, 0 0 0 4px rgba(255, 228, 170, .3);   /* recessed bezel, on the wood */
 }
 
 /* BIG NET: a light shake of the machine (transform only). */
@@ -130,24 +187,44 @@ body {
   75% { transform: translate3d(2px, 0, 0); }
 }
 
-/* Click-anywhere-to-skip catcher during the net cast (no visuals). */
+/* Collect flights (created by js/fx.js in a fixed layer on <body>): fish values and sparkling fishermen. */
+#fly-layer { position: fixed; inset: 0; z-index: 35; pointer-events: none; overflow: hidden; }
+.fly { position: absolute; left: 0; top: 0; will-change: transform, opacity; }
+.fly-val {
+  font-size: max(12px, calc(var(--cell) * .2));
+  font-weight: 900;
+  white-space: nowrap;
+  color: #fff6c8;
+  text-shadow: -1px -1px 0 #5a3400, 1px -1px 0 #5a3400, -1px 1px 0 #5a3400, 1px 1px 0 #5a3400, 0 0 10px rgba(255, 210, 90, .9);
+}
+.fly-spark {
+  width: calc(var(--cell) * .6);
+  height: calc(var(--cell) * .6);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 246, 200, .95) 0 30%, rgba(255, 200, 90, .55) 55%, transparent 72%);
+  filter: drop-shadow(0 0 6px rgba(255, 220, 120, .95));
+}
+.fly-spark svg { width: 100%; height: 100%; }
+
+/* Click-anywhere-to-skip catcher during the net cast and the collect (no visuals). */
 .skip-layer { position: fixed; inset: 0; z-index: 30; cursor: pointer; }
 
 /* Message line */
 .message {
   min-height: 44px;
   width: 100%;
-  margin-top: 10px;
+  margin-top: 16px;           /* clears the life ring on the frame corner */
   padding: 6px 10px;
   text-align: center;
   font-size: 15px;
   font-weight: 700;
   border-radius: 10px;
-  background: rgba(0, 20, 40, .55);
-  border: 1px solid rgba(159, 195, 220, .25);
+  background: rgba(4, 20, 32, .82);
+  border: 2px solid var(--plank-2);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .5);
   overflow-wrap: anywhere;
 }
-.message.win { color: var(--gold-light); border-color: var(--gold); }
+.message.win { color: var(--gold-light); border-color: var(--trim); }
 .message.error { color: var(--danger); border-color: var(--danger); }
 
 /* Controls */
@@ -165,14 +242,19 @@ body {
   padding: 6px 4px;
   min-width: 0;
   border-radius: 10px;
-  background: linear-gradient(180deg, var(--wood), var(--wood-dark));
-  border: 2px solid var(--gold-dark);
+  /* A small nailed dock board. */
+  background: var(--nail) left 3px top 3px / 7px 7px no-repeat, var(--nail) right 3px top 3px / 7px 7px no-repeat,
+              var(--nail) left 3px bottom 3px / 7px 7px no-repeat, var(--nail) right 3px bottom 3px / 7px 7px no-repeat,
+              var(--planks);
+  border: 2px solid var(--plank-3);
+  box-shadow: inset 0 1px 0 rgba(255, 230, 180, .3), inset 0 0 0 1px rgba(0, 0, 0, .25), 0 0 0 1px var(--trim), 0 4px 8px rgba(0, 0, 0, .45);
 }
-.stat-label { font-size: 11px; color: var(--gold-light); text-transform: uppercase; letter-spacing: .5px; }
+.stat-label { font-size: 11px; color: var(--gold-light); text-transform: uppercase; letter-spacing: .5px; text-shadow: 0 1px 1px rgba(0,0,0,.7); }
 .stat-value {
   font-size: clamp(15px, 4.6vw, 20px);
   font-weight: 900;
   color: #fff;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, .55);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -184,9 +266,9 @@ body {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 2px solid var(--gold);
-  background: var(--water);
-  color: var(--gold-light);
+  border: 2px solid #4a3006;                 /* brass knob */
+  background: radial-gradient(circle at 35% 30%, #fff3c4, #e2b244 50%, #8a5f0a);
+  color: #3b2400;
   font-size: 18px;
   font-weight: 900;
   line-height: 1;
@@ -194,8 +276,8 @@ body {
   padding: 0;
 }
 .bet-btn:disabled { opacity: .35; cursor: not-allowed; }
-.bet-box.locked { border-color: #138a4c; }
-.bet-lock { color: var(--good); text-transform: none; }
+.bet-box.locked { border-color: var(--trim); }
+.bet-lock { color: var(--gold-light); text-transform: none; }
 
 .actions {
   grid-column: 1 / -1;
@@ -209,18 +291,25 @@ body {
   width: 110px;
   height: 110px;
   border-radius: 50%;
-  border: 4px solid var(--gold-light);
-  background: radial-gradient(circle at 35% 30%, #ffe9a3, var(--gold) 45%, var(--gold-dark) 100%);
-  color: #3b2400;
+  border: 3px solid #fff4d4;
+  /* A life ring (8 red/white segments) around a gold centre that carries the label. */
+  background:
+    radial-gradient(circle at 38% 30%, rgba(255, 255, 255, .6), transparent 28%),
+    radial-gradient(circle closest-side, var(--spin-1) 0, var(--spin-2) 48%, var(--spin-3) 68%, #4a2a04 69% 72%, transparent 73%),
+    repeating-conic-gradient(from 22.5deg, #e2402f 0 45deg, #fbf4e6 45deg 90deg);
+  color: #2e1a00;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .45);
   font-size: 24px;
   font-weight: 900;
   letter-spacing: 1px;
+  line-height: 1.05;
+  padding: 0;
   cursor: pointer;
-  box-shadow: 0 6px 0 #6b4a05, 0 10px 20px rgba(0,0,0,.5);
+  box-shadow: inset 0 0 0 2px rgba(120, 20, 10, .55), 0 6px 0 #6b2a10, 0 10px 20px rgba(0,0,0,.5);
   transition: transform .08s ease, box-shadow .08s ease, filter .2s ease;
   touch-action: manipulation;
 }
-.spin-btn:active:not(:disabled) { transform: translateY(4px) scale(.97); filter: brightness(1.12); box-shadow: 0 2px 0 #6b4a05, 0 4px 10px rgba(0,0,0,.5); }
+.spin-btn:active:not(:disabled) { transform: translateY(4px) scale(.97); filter: brightness(1.12); box-shadow: inset 0 0 0 2px rgba(120, 20, 10, .55), 0 2px 0 #6b2a10, 0 4px 10px rgba(0,0,0,.5); }
 /* "Ready" glow ring (compositor-only: opacity + transform); flashes on press. */
 .spin-btn { position: relative; }
 .spin-btn::after {
@@ -235,36 +324,42 @@ body {
 }
 .spin-btn:not(:disabled)::after { animation: spin-ready 1.6s ease-in-out infinite; }
 .spin-btn:active:not(:disabled)::after { animation: none; opacity: 1; transform: scale(1.1); }
-.spin-btn.free::after { border-color: rgba(201, 255, 224, .9); box-shadow: 0 0 18px rgba(47, 191, 114, .9); }
+.spin-btn.free::after { border-color: rgba(255, 214, 150, .9); box-shadow: 0 0 18px rgba(255, 150, 60, .9), inset 0 0 10px rgba(255, 150, 60, .5); }
 @keyframes spin-ready {
   0%, 100% { opacity: .15; transform: scale(.96); }
   50%      { opacity: .9;  transform: scale(1.04); }
 }
 .spin-btn:disabled { filter: grayscale(.6) brightness(.8); cursor: not-allowed; }
-.spin-btn.free { font-size: 17px; background: radial-gradient(circle at 35% 30%, #b9ffd6, #2fbf72 50%, #0d6b3a 100%); color: #032712; border-color: #c9ffe0; }
+/* FREE SPIN: same ring, sunset centre (colours come from the cabinet's fs-mood); two-line label (Home.razor). */
+.spin-btn.free { font-size: 17px; color: #2a0d00; }
 
+/* Auto: a wooden pill wrapped in rope (rope = border-box layer under the padding-box wood). */
 .auto-btn {
   min-width: 72px;
-  padding: 10px 14px;
+  padding: 9px 14px;
   border-radius: 22px;
-  border: 2px solid var(--gold);
-  background: var(--water);
-  color: var(--gold-light);
+  border: 3px solid transparent;
+  background: linear-gradient(180deg, var(--plank-1), var(--plank-3)) padding-box, var(--rope) border-box;
+  color: #fff3d6;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, .6);
   font-weight: 800;
   font-size: 15px;
   cursor: pointer;
   touch-action: manipulation;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, .45);
 }
 .auto-btn[aria-pressed="true"] {
-  background: linear-gradient(180deg, var(--gold), var(--gold-dark));
+  background: linear-gradient(180deg, var(--gold-light), var(--gold) 50%, var(--gold-dark)) padding-box, var(--rope) border-box;
   color: #2a1a00;
+  text-shadow: none;
   box-shadow: 0 0 12px rgba(244,200,79,.7);
 }
 .reset-link {
   background: none;
   border: none;
   padding: 6px;
-  color: var(--ink-dim);
+  color: #d4e8f5;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .8);
   text-decoration: underline;
   cursor: pointer;
   font-size: 13px;
@@ -273,12 +368,13 @@ body {
 
 button:focus-visible { outline: 3px solid var(--gold-light); outline-offset: 2px; }
 
-.footer { margin-top: 14px; text-align: center; font-size: 11px; color: var(--ink-dim); }
+.footer { margin-top: 14px; text-align: center; font-size: 11px; color: #c9dfee; text-shadow: 0 1px 2px rgba(0,0,0,.9); }
 
 /* Narrow screens */
 @media (max-width: 420px) {
   .app { padding-left: 8px; padding-right: 8px; }
-  .frame { padding: 6px; border-width: 6px; }
+  .frame { padding: 8px; border-width: 4px; }
+  .header { padding: 3px 16px 6px; }
   .spin-btn { width: 92px; height: 92px; font-size: 21px; }
   .bet-row { gap: 3px; }
   .bet-btn { width: 24px; height: 24px; font-size: 16px; }
@@ -305,7 +401,7 @@ button:focus-visible { outline: 3px solid var(--gold-light); outline-offset: 2px
       ".  msg   msg   msg   ."
       ".  stat1 stat2 stat3 .";
     column-gap: 8px;
-    row-gap: 10px;
+    row-gap: 16px; /* the life ring hangs below the frame corner */
     justify-content: center;
   }
   /* Flatten the existing wrappers so their children land in the cabinet grid. */
@@ -328,8 +424,8 @@ button:focus-visible { outline: 3px solid var(--gold-light); outline-offset: 2px
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bubbles { animation: none !important; }
   .spin-btn { transition: none; }
+  .cabinet { transition: none; }
   .spin-btn::after { animation: none !important; }
   .frame.shake { animation: none; }
 }

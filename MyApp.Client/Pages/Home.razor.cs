@@ -104,6 +104,14 @@ public partial class Home : IAsyncDisposable
         {
             // Keyboard shortcuts are a convenience; the buttons still work.
         }
+        try
+        {
+            fxModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/fx.js");
+        }
+        catch (JSException)
+        {
+            // Collect flights are decoration; without them the totals still count up.
+        }
     }
 
     [JSInvokable]
@@ -136,6 +144,11 @@ public partial class Home : IAsyncDisposable
             }
         }
         selfRef?.Dispose();
+        if (fxModule is not null)
+        {
+            try { await fxModule.DisposeAsync(); }
+            catch (JSDisconnectedException) { }
+        }
     }
 
     // ---------- spin ----------
@@ -212,6 +225,13 @@ public partial class Home : IAsyncDisposable
                 if (disposed) return;
             }
 
+            // 3c) Free spins: fish values fly to the fisherman, then fishermen fly to the counter bar.
+            if (result.WasFreeSpin && result.WildCount > 0)
+            {
+                await PlayCollectAsync(result, finalGrid, prevState);
+                if (disposed) return;
+            }
+
             SetState(result.State);
             winAmount = result.TotalWin;
             winMarks = WinText.Marks(result, finalGrid, finalLines, final: true);
@@ -277,6 +297,10 @@ public partial class Home : IAsyncDisposable
         traceLines = null;
         celebration = null;
         ClearNetCast();
+        collect = null;
+        collectFx = null;
+        wildsShown = null;
+        collecting = false;
         busy = false;
         featureWinOverride = null;
         CancelNextSpin();

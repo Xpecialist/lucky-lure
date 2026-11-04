@@ -148,9 +148,49 @@ Newest entries at the bottom. Each entry: what changed, why, and the commit.
   from the live server via API (Small, 1 Wild, 0 → 3 fish, collect 9.00), page loads without errors. Visual feel
   of the net animation still needs a human look (agents' browser pane was hidden).
 
+### Commits
+- `a480b50` net-cast animation, `5d15a74` net-cast engine, merged `24f3293`; `ce90f2f` logs. Pushed.
+
+## 2026-11-04 — Day 2
+
+### Fishing scene + cabinet (frontend builder)
+- User asked for a background and frame "closer to a fishing game", plus fish on a square tile with the value
+  inside, always 2 decimals. User chose "." as decimal separator (matches the rest of the UI; thousands comma kept,
+  e.g. 1,000.00).
+- `Components/Scene.razor`: one fixed inline-SVG lake scene behind the app (sky, clouds, hills, pines, pier,
+  waterline waves, light rays, fish silhouettes, bubbles, seabed with seaweed), darker vignette behind the
+  machine; transform/opacity animations only, off under reduced motion; `ShouldRender` only on mood change.
+- Free-spin mood: `<Scene Free="ShowBanner" />` + `fs-mood` class on `.cabinet`; sunset layers fade in over ~1 s,
+  cabinet colours blend via `@property` custom properties. (This covers the Phase 2 "free-spins mood" idea.)
+- Cabinet: weathered planks with nails, rope border and corner lashings (`Components/FrameDeco.razor`: rod over
+  the top-left, bobbing float, life ring on the corner), hanging wooden "Lucky Lure" sign, plank stat boards with
+  brass bet knobs, rope Auto pill, life-ring SPIN, tackle-box paytable, sunset-wood free-spin banner.
+- Fish: rounded-square water-blue tile with the value on a band inside, `Fmt.Money` (2 decimals), shrinks to fit
+  ("1,000.00" fits at 360 px). Unused `Fmt.Short` removed.
+- Coordinator verified: only client files changed, build clean, 101/101 tests, live at 1280×800 (scene, sign,
+  frame, rod, SPIN beside reels, fish tile "2.00") and 375×812 (no horizontal scroll, tile "100.00"), no console
+  errors. Not judged: animation feel (agent pane hidden), real free-spin mood (forced via console by the builder).
+
+### Fish tile, rope nudge, collect animation, fisherman bar (frontend builder)
+- User requests (with a screenshot of another game's fisherman bar as a layout reference only — own art used):
+  1. Fish value sits directly on the square tile (inner band removed), bold white with dark outline.
+  2. Nudge: "HELD" tag + gold frame removed; an SVG rope loop draws around each held Boat, moves down with it,
+     fades after the respin.
+  3. Collect (`Pages/Home.Collect.cs`, `Components/CollectFx.razor`, `fx.js` flyValue/flySpark): fish values fly
+     one by one to the first fisherman, running total, then "×N" and the final number set from
+     `result.CollectWin`; fishermen sparkle and a glowing copy flies to the next counter slot. Skippable,
+     reduced-motion = instant. Finishes before celebrations/retrigger overlay.
+  4. `FreeSpinBanner`: 12 slots (WildsPerRetrigger × (Multipliers.Length − 1)) in 3 groups with "+10 FREE SPINS
+     ×2/×3/×10" plates; grey → colour pop as fishermen land; plates light when reached. Container queries for
+     narrow widths.
+- Coordinator verified: build clean, 101/101 tests; live real bonus (triggered after 38 auto spins): FREE SPINS
+  overlay waited, sunset mood on, collect seen mid-flight (2.00 counter on the fisherman), slot 1 lit, a later
+  collect "Fisherman reeled in 9.00!" matched 5.00 + 2.00 + 2.00. Rope nudge and reduced motion not seen live by
+  the coordinator (builder checked the rope with a stub). Known rough edges: bar is small at 360–375 px; the collect
+  counter can overlap the cell above the fisherman.
+
 ## Where we left off
-- Next (user decides): Phase 3 sound, Phase 2 excitement moments (scatter tease, fish values flying to the
-  fisherman, free-spins mood, multiplier ladder); tester pass using the T1 seams; remaining frontend items
+- Next (user decides): Phase 3 sound, Phase 2 leftovers (scatter tease, multiplier-ladder burst); tester pass using the T1 seams; remaining frontend items
   H1 (publish), C1, C3, C4, C8; Q1–Q3. Title icon is still an emoji. Backend worktree `..\LuckyLure-backend`
   can be reused for the next backend branch.
   After T1: tester adds the blocked deterministic tests.
@@ -174,3 +214,7 @@ Newest entries at the bottom. Each entry: what changed, why, and the commit.
     handling, forwarded headers, HSTS. (Plus git worktrees and merging.)
 15. Delegates as strategy seams, decide-then-apply (NetPlan/CastNet), partial Fisher–Yates sampling,
     Blazor `@key` diffing and in-place updates.
+16. CSS stacking contexts/z-index layering, a Blazor "scene" component with ShouldRender, scoped CSS,
+    prefers-reduced-motion, `@property` for animatable custom properties.
+17. Blazor ↔ JS split (C# sequences with async/await, JS module via IJSObjectReference for measuring/Web
+    Animations API), component lifecycle (OnParametersSet to detect changes), CSS container queries.

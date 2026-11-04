@@ -5,10 +5,24 @@
         <div class="fs-stat"><span class="fs-label">Multiplier</span><span class="fs-value">×@State.Multiplier</span></div>
         <div class="fs-stat"><span class="fs-label">Feature win</span><span class="fs-value">@Fmt.Money(FeatureWin ?? State.FreeSpinWin)</span></div>
     </div>
-    <div class="fs-wilds">
-        <span class="fs-label">Fishermen <b>@(Maxed ? State.WildsCollected.ToString() : $"{Progress} / {PerRetrigger}")</b></span>
-        <div class="meter" role="presentation"><div class="meter-fill" style="width: @(Progress * 100 / PerRetrigger)%"></div></div>
-        <span class="fs-next">@NextText</span>
+
+    @* Fisherman counter: PerRetrigger slots per level, then a "+10 FREE SPINS / ×N" plate for that level. *@
+    <div class="fs-bar" role="img" aria-label="@BarLabel">
+        @for (var g = 0; g < Levels; g++)
+        {
+            for (var s = 0; s < PerRetrigger; s++)
+            {
+                var i = g * PerRetrigger + s;
+                <span class="fs-slot @(i < Filled ? "on" : null) @(i >= popFrom && i < Filled ? "pop" : null)" data-i="@i">
+                    <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#sym-wild" /></svg>
+                </span>
+            }
+            var lit = Filled >= (g + 1) * PerRetrigger;
+            <span class="fs-plate @(lit ? "lit" : null) @(lit && g >= platePopFrom ? "pop" : null)">
+                <span class="fs-plate-spins"><b>+10</b><small>FREE SPINS</small></span>
+                <span class="fs-plate-mult">×@MultiplierAt(g + 1)</span>
+            </span>
+        }
     </div>
 </section>
 
@@ -19,22 +33,39 @@
     /// <summary>Final feature win to show after the last free spin (state may already be cleared).</summary>
     [Parameter] public decimal? FeatureWin { get; set; }
 
+    /// <summary>
+    /// Fishermen to show as collected while the page's collect animation is running (each slot lights up as
+    /// its sparkle arrives). Null = use <see cref="GameState.WildsCollected"/>.
+    /// </summary>
+    [Parameter] public int? WildsShown { get; set; }
+
     private int PerRetrigger => Info.WildsPerRetrigger > 0 ? Info.WildsPerRetrigger : 4;
-    private int MaxRetriggers => Math.Max(0, (Info.Multipliers?.Count ?? 4) - 1);
-    private bool Maxed => State.Retriggers >= MaxRetriggers;
+    private int Levels => Math.Max(1, (Info.Multipliers?.Count ?? 4) - 1);
+    private int Slots => PerRetrigger * Levels;
+    private int Filled => Math.Clamp(WildsShown ?? State.WildsCollected, 0, Slots);
 
-    private int Progress => Maxed
-        ? PerRetrigger
-        : Math.Clamp(State.WildsCollected - State.Retriggers * PerRetrigger, 0, PerRetrigger);
+    private int lastFilled = -1;     // previous render's count: only newly filled slots / plates pop
+    private int popFrom = int.MaxValue;
+    private int platePopFrom = int.MaxValue;
 
-    private string NextText
+    private string BarLabel =>
+        $"Fishermen collected: {Filled} of {Slots}. Every {PerRetrigger} give +10 free spins and a higher multiplier.";
+
+    private int MultiplierAt(int level) =>
+        Info.Multipliers is { } m && level < m.Count ? m[level] : 1;
+
+    protected override void OnParametersSet()
     {
-        get
+        var filled = Filled;
+        if (lastFilled < 0 || filled < lastFilled)
         {
-            if (Maxed) return "Max multiplier reached";
-            var mults = Info.Multipliers;
-            var next = mults is not null && State.Retriggers + 1 < mults.Count ? $", ×{mults[State.Retriggers + 1]}" : "";
-            return $"{PerRetrigger - Progress} more → +10 spins{next}";
+            popFrom = platePopFrom = int.MaxValue; // first render / new feature: no pop
         }
+        else if (filled > lastFilled)
+        {
+            popFrom = lastFilled;
+            platePopFrom = lastFilled / PerRetrigger; // first level that may have just been reached
+        }
+        lastFilled = filled;
     }
 }

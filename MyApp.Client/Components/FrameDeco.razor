@@ -1,0 +1,30 @@
+@*
+    Decorations on the reel frame (all aria-hidden, no pointer events, all outside the reel window):
+    rope knots on the corners, a fishing rod arching over the top-left with a bobbing float on the line,
+    and a life ring (the symbol sprite's #sym-float) hooked on the bottom-right corner.
+*@
+<span class="knot tl" aria-hidden="true"></span>
+<span class="knot tr" aria-hidden="true"></span>
+<span class="knot bl" aria-hidden="true"></span>
+<span class="knot br" aria-hidden="true"></span>
+
+<svg class="rod" viewBox="0 0 160 50" aria-hidden="true" focusable="false">
+    <path class="rod-blank" d="M10 44 Q62 2 150 6" />
+    <path class="rod-shine" d="M14 40 Q62 4 146 7" />
+    <circle class="rod-guide" cx="70" cy="13" r="2" />
+    <circle class="rod-guide" cx="112" cy="6.5" r="1.8" />
+    <path class="rod-grip" d="M2 50 L16 39" />
+    <circle class="rod-reel" cx="22" cy="40" r="6" />
+    <circle class="rod-hub" cx="22" cy="40" r="2" />
+</svg>
+
+<span class="float" aria-hidden="true">
+    <svg viewBox="0 0 14 30" focusable="false">
+        <path class="line" d="M7 -6 V16" />
+        <path class="bob-top" d="M1 19 A6 6 0 0 1 13 19 Z" />
+        <path class="bob-bottom" d="M1 19 A6 6 0 0 0 13 19 Z" />
+        <rect class="bob-stem" x="6" y="9" width="2" height="5" rx="1" />
+    </svg>
+</span>
+
+<svg class="ring" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><use href="#sym-float" /></svg>

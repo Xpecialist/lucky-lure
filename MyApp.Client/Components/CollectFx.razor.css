@@ -1,0 +1,56 @@
+/* Positioned over one reel cell: reels are --cell wide with --gap between them, rows are --cell tall. */
+.collectfx {
+    position: absolute;
+    left: calc(var(--r) * (var(--cell) + var(--gap)));
+    top: calc(var(--row) * var(--cell));
+    width: var(--cell);
+    height: var(--cell);
+    z-index: 6;
+    pointer-events: none;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+/* The counter sits on the fisherman's hat line, half over the cell above (inside the cell on the top row). */
+.total {
+    margin-top: -18%;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 1px 7px 2px;
+    border-radius: 10px;
+    white-space: nowrap;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+    background: linear-gradient(180deg, #2a7a4c, #0f4a2a);
+    border: 2px solid #9dffc8;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, .5), 0 0 10px rgba(80, 220, 140, .6);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, .6);
+}
+.top .total { margin-top: 2%; }
+.amount { font-size: max(12px, calc(var(--cell) * .2)); }
+.factor { font-size: max(11px, calc(var(--cell) * .17)); color: #ffe8a0; animation: factor-in .3s ease-out both; }
+
+.total.final {
+    color: #3b2400;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, .5);
+    background: linear-gradient(180deg, #fff1b8, var(--gold) 55%, var(--gold-dark));
+    border-color: #fff6d8;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, .5), 0 0 14px rgba(255, 210, 90, .95);
+    animation: total-pop .4s cubic-bezier(.2, 1.6, .4, 1) both;
+}
+
+@keyframes factor-in {
+    from { opacity: 0; transform: translateX(-6px); }
+    to   { opacity: 1; transform: none; }
+}
+@keyframes total-pop {
+    from { transform: scale(.6); }
+    to   { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .factor, .total.final { animation: none; }
+}

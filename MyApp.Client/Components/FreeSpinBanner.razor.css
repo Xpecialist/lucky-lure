@@ -3,8 +3,9 @@
     padding: 8px 10px 10px;
     border: 2px solid var(--gold);
     border-radius: var(--radius);
-    background: linear-gradient(180deg, rgba(10, 70, 40, .85), rgba(4, 40, 30, .9));
-    box-shadow: 0 0 18px rgba(244, 200, 79, .35);
+    /* Sunset-wood board to match the free-spin mood of the scene and cabinet. */
+    background: linear-gradient(180deg, rgba(128, 50, 24, .93), rgba(66, 20, 12, .95));
+    box-shadow: inset 0 1px 0 rgba(255, 220, 160, .35), 0 0 20px rgba(255, 160, 60, .5);
 }
 
 .fs-head {
@@ -23,35 +24,88 @@
 }
 
 .fs-stat { display: flex; flex-direction: column; align-items: center; min-width: 0; }
-.fs-label { font-size: 11px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: .5px; }
+.fs-label { font-size: 11px; color: #f6dcb4; text-transform: uppercase; letter-spacing: .5px; }
 .fs-label b { color: #fff; font-weight: 800; }
 .fs-value { font-size: 18px; font-weight: 800; color: #fff; }
 
-.fs-wilds { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.fs-wilds .fs-label { white-space: nowrap; }
+/* ---------- fisherman counter bar ----------
+   One row that always fits: slots are 1fr each, plates 2.3fr, so the whole strip scales with the banner
+   (container query units size the plate text). */
+.fs-bar {
+    container-type: inline-size;
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(40, 14, 6, .75), rgba(20, 6, 2, .8));
+    border: 1px solid rgba(255, 200, 120, .35);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, .5);
+}
 
-.meter {
-    flex: 1 1 120px;
-    height: 10px;
+.fs-slot {
+    flex: 1 1 0;
+    min-width: 0;
+    aspect-ratio: 1;
+    align-self: center;
+    border-radius: 22%;
+    background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, .12), rgba(0, 0, 0, .35));
+    border: 1px solid rgba(255, 220, 160, .25);
+}
+.fs-slot svg { display: block; width: 100%; height: 100%; filter: grayscale(1) brightness(.55); opacity: .55; }
+.fs-slot.on {
+    background: radial-gradient(circle at 50% 40%, #fff1c4, #f0a948 70%, #a3561b);
+    border-color: #ffe7a6;
+    box-shadow: 0 0 6px rgba(255, 200, 90, .7);
+}
+.fs-slot.on svg { filter: none; opacity: 1; }
+.fs-slot.pop { animation: slot-pop .45s cubic-bezier(.2, 1.6, .4, 1); }
+
+/* Plate: "+10 / FREE SPINS" beside the level's multiplier; stacked "+10 / ×2" on narrow banners. */
+.fs-plate {
+    flex: 2.6 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    margin: 0 1px;
+    padding: 2px;
     border-radius: 6px;
-    background: rgba(0,0,0,.45);
-    border: 1px solid rgba(244,200,79,.5);
-    overflow: hidden;
+    text-align: center;
+    line-height: 1.05;
+    color: rgba(255, 236, 200, .55);
+    background: linear-gradient(180deg, #6a3a1c, #3c1d0c);
+    border: 1px solid #2a1206;
+}
+.fs-plate-spins { display: flex; flex-direction: column; align-items: center; white-space: nowrap; }
+.fs-plate-spins b { font-size: clamp(8px, 2.3cqi, 14px); font-weight: 900; }
+.fs-plate-spins small { font-size: clamp(6px, 1.4cqi, 9px); font-weight: 800; letter-spacing: .2px; }
+.fs-plate-mult { font-size: clamp(10px, 3.4cqi, 20px); font-weight: 900; }
+.fs-plate.lit {
+    color: #3b1a00;
+    background: linear-gradient(180deg, #fff1b8, #ffc04a 55%, #e07a1f);
+    border-color: #fff3c8;
+    box-shadow: 0 0 10px rgba(255, 190, 80, .9);
+}
+.fs-plate.pop { animation: slot-pop .5s cubic-bezier(.2, 1.6, .4, 1); }
+
+/* Narrow banners: "+10" over "×2" (the bar's aria-label still explains the rule). */
+@container (max-width: 520px) {
+    .fs-plate { flex-direction: column; gap: 0; }
+    .fs-plate-spins small { display: none; }
 }
 
-.meter-fill {
-    height: 100%;
-    width: 0;
-    background: linear-gradient(90deg, var(--gold-dark), var(--gold), var(--gold-light));
-    transition: width .4s ease;
+@keyframes slot-pop {
+    0%   { transform: scale(.6); }
+    100% { transform: scale(1); }
 }
-
-.fs-next { font-size: 11px; color: var(--gold-light); white-space: nowrap; }
 
 @media (max-width: 420px) {
     .fs-value { font-size: 16px; }
+    .fs-bar { padding: 3px; gap: 1px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .meter-fill { transition: none; }
+    .fs-slot.pop, .fs-plate.pop { animation: none; }
 }

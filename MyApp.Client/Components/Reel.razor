@@ -19,14 +19,10 @@
         <div class="strip @animClass" @key="animKey">
             @for (var row = 0; row < Cells.Length; row++)
             {
-                @CellView(Cells[row], RowFx(row))
+                @CellView(Cells[row], RowFx(row), Cells[row].Symbol == Symbol.Scatter ? ropeMode : null)
             }
             @foreach (var cell in tail) { @CellView(cell, null) }
         </div>
-    }
-    @if (Held)
-    {
-        <span class="held-frame"><span class="held-tag">HELD</span></span>
     }
 </div>
 
@@ -38,8 +34,9 @@
     [Parameter] public bool Spinning { get; set; }
 
     /// <summary>
-    /// Held for a nudge respin: shows a HELD frame, and new <see cref="Cells"/> slide in from above by one
-    /// cell (the server shifts a held reel down one row) instead of snapping.
+    /// Held for a nudge respin: a rope loop draws itself around the reel's Boat, and new <see cref="Cells"/>
+    /// slide in from above by one cell (the server shifts a held reel down one row) instead of snapping.
+    /// The rope is part of the Boat's cell, so it slides down with it; it fades when the hold ends.
     /// </summary>
     [Parameter] public bool Held { get; set; }
 
@@ -69,6 +66,7 @@
     private Cell[] tail = [];      // cells rendered below the visible ones for the current animation
     private string? animClass;     // "landing" | "nudging" | null
     private int animKey;           // new key = new element = the CSS animation replays
+    private string? ropeMode;      // rope around the held Boat: "draw" (tease) | "keep" (nudging) | "fade" | null
 
     private bool wasSpinning;
     private Cell[]? lastCells;
@@ -83,6 +81,12 @@
     {
         var cellsChanged = lastCells is not null && !ReferenceEquals(Cells, lastCells);
 
+        // Rope loop for the nudge respin: draws in when the hold starts, is kept (no redraw) while the strip
+        // is re-created for the nudge, and fades out once the hold ends. A new spin clears it.
+        if (Held && !lastHeld) ropeMode = "draw";
+        else if (!Held && lastHeld) ropeMode = "fade";
+        else if (Spinning && !wasSpinning) ropeMode = null;
+
         if (Spinning && !wasSpinning)
         {
             loop = [.. Cells, .. Symbols.RandomCells(LoopFillers, FillerBet, FreeMode)];
@@ -94,6 +98,7 @@
         else if (!Spinning && Held && cellsChanged && lastCells is { Length: > 0 } previous)
         {
             StartAnimation("nudging", [previous[^1]]);
+            ropeMode = "keep";
         }
         else if (cellsChanged && !Spinning)
         {
@@ -131,21 +136,37 @@
         : WinRows is { } w && row < w.Length && w[row] ? "win"
         : null;
 
-    /// <summary>One cell: the symbol's SVG art (from the shared sprite), fish value badge and WILD/SCATTER tag.</summary>
-    private static RenderFragment CellView(Cell cell, string? fx)
+    /// <summary>
+    /// One cell: the symbol's SVG art (from the shared sprite), WILD/SCATTER tag, and for a Fish its cash value
+    /// (money format, two decimals) inside the square tile. --len lets the CSS shrink long values to fit the tile.
+    /// </summary>
+    private static RenderFragment CellView(Cell cell, string? fx, string? rope = null)
     {
         var meta = Symbols.Of(cell.Symbol);
-        var fishValue = cell.Symbol == Symbol.Fish ? cell.Value : null;
-        var label = fishValue is { } fv ? $"{meta.Name} {Fmt.Money(fv)}" : meta.Name;
+        var fishValue = cell.Symbol == Symbol.Fish && cell.Value is { } fv ? Fmt.Money(fv) : null;
+        var label = fishValue is not null ? $"{meta.Name} {fishValue}" : meta.Name;
         return @<div class="cell @meta.Css @fx" title="@label">
                     <svg class="art" viewBox="0 0 100 100" aria-hidden="true"><use href="@meta.Art" /></svg>
-                    @if (fishValue is { } v)
+                    @if (fishValue is not null)
                     {
-                        <span class="val">@Fmt.Short(v)</span>
+                        <span class="val" style="--len: @fishValue.Length">@fishValue</span>
                     }
                     @if (meta.Tag is not null)
                     {
                         <span class="tag">@meta.Tag</span>
+                    }
+                    @if (rope is not null)
+                    {
+                        @* Rope loop: tan core (drawn in with a dash animation), dark twist bands, highlight, knot. *@
+                        <svg class="rope @rope" viewBox="0 0 100 100" aria-hidden="true">
+                            <path class="rope-core" pathLength="100" d="M79.6 83.7 A46 44 0 1 1 87.7 75.2" />
+                            <path class="rope-twist" d="M79.6 83.7 A46 44 0 1 1 87.7 75.2" />
+                            <path class="rope-shine" d="M79.6 83.7 A46 44 0 1 1 87.7 75.2" />
+                            <g class="rope-knot">
+                                <path d="M84 79 q5 7 3 15 M84 79 q8 3 13 2" />
+                                <circle cx="84" cy="79" r="5" />
+                            </g>
+                        </svg>
                     }
                 </div>;
     }

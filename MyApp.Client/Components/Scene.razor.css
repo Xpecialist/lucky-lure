@@ -1,0 +1,225 @@
+/* Lake scene behind the game. Layers paint in DOM order (all absolutely positioned, no z-index needed).
+   Only transform / opacity animate, so the browser can run them on the compositor without re-layout. */
+.scene {
+    --horizon: 30vh;
+    position: fixed;
+    inset: 0;
+    z-index: -1;            /* behind the page content, inside .app's stacking context */
+    overflow: hidden;
+    pointer-events: none;
+    background: linear-gradient(180deg,
+        #7ccbf0 0%, #bfe8fa calc(var(--horizon) - 2px),
+        #3aa3d2 var(--horizon), #1a6fa3 calc(var(--horizon) + 12vh),
+        #0b3f6d 66%, #04203f 100%);
+}
+.scene > * { position: absolute; }
+
+/* ---------- sunset mood (free spins) ---------- */
+.sky-sunset {
+    inset: 0;
+    opacity: 0;
+    transition: opacity 1s ease;
+    background: linear-gradient(180deg,
+        #3b2f6b 0%, #a8467a calc(var(--horizon) * .45), #f08a4b calc(var(--horizon) - 7vh), #ffd27a calc(var(--horizon) - 2px),
+        #e08a4e var(--horizon), #9a4a4c calc(var(--horizon) + 12vh),
+        #4a2346 66%, #1d1030 100%);
+}
+.sun {
+    left: 20%;
+    top: calc(var(--horizon) - 10vh);
+    width: 20vh;
+    height: 20vh;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff6cf 0 28%, #ffcf5a 38%, rgba(255, 150, 60, .45) 52%, transparent 70%);
+    opacity: 0;
+    transform: translate3d(-50%, 5vh, 0);
+    transition: opacity 1s ease, transform 1.2s ease;
+}
+.free .sky-sunset { opacity: 1; }
+.free .sun { opacity: 1; transform: translate3d(-50%, 0, 0); }
+.warm {
+    inset: 0;
+    opacity: 0;
+    transition: opacity 1s ease;
+    background: linear-gradient(180deg, transparent 0, rgba(255, 130, 60, .10) var(--horizon), rgba(110, 30, 30, .28) 100%);
+}
+.free .warm { opacity: 1; }
+
+/* ---------- sky ---------- */
+.cloud { width: 150px; opacity: .85; animation: drift 70s ease-in-out infinite alternate; }
+.cloud svg { display: block; width: 100%; height: auto; }
+.cloud path { fill: #fff; transition: fill 1s ease; }
+.free .cloud path { fill: #ffc9a8; }
+.c1 { top: 3vh; left: 6%; }
+.c2 { top: 10vh; left: 64%; width: 110px; opacity: .7; animation-duration: 90s; animation-delay: -30s; }
+.c3 { top: 17vh; left: 38%; width: 80px; opacity: .55; animation-duration: 80s; animation-delay: -50s; }
+@keyframes drift {
+    from { transform: translate3d(-6vw, 0, 0); }
+    to   { transform: translate3d(8vw, 0, 0); }
+}
+
+.shore {
+    left: 0;
+    width: 100%;
+    top: calc(var(--horizon) - clamp(80px, 16vh, 150px));
+    height: clamp(80px, 16vh, 150px);
+}
+.shore .far  { fill: #79acc4; transition: fill 1s ease; }
+.shore .near { fill: #2f6e45; transition: fill 1s ease; }
+.shore .pine { fill: #1d5034; transition: fill 1s ease; }
+.shore .dock { fill: #6b4423; transition: fill 1s ease; }
+.free .shore .far  { fill: #b56a7e; }
+.free .shore .near { fill: #4a2a3a; }
+.free .shore .pine { fill: #2e1a2c; }
+.free .shore .dock { fill: #3a2216; }
+
+/* ---------- water surface ---------- */
+.waves {
+    left: 0;
+    width: calc(100% + 160px);
+    height: 14px;
+    top: calc(var(--horizon) - 6px);
+    background-repeat: repeat-x;
+    background-size: 160px 14px;
+}
+.waves.back {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='14' viewBox='0 0 160 14'%3E%3Cpath d='M0 7 Q20 1 40 7 T80 7 T120 7 T160 7 V14 H0 Z' fill='%23ffffff' fill-opacity='.22'/%3E%3C/svg%3E");
+    animation: wave 9s linear infinite;
+}
+.waves.front {
+    top: calc(var(--horizon) - 2px);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='14' viewBox='0 0 160 14'%3E%3Cpath d='M0 6 Q20 11 40 6 T80 6 T120 6 T160 6' fill='none' stroke='%23ffffff' stroke-opacity='.45' stroke-width='2'/%3E%3C/svg%3E");
+    animation: wave 6s linear infinite reverse;
+}
+@keyframes wave {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(-160px, 0, 0); }
+}
+
+/* ---------- underwater ---------- */
+.rays {
+    left: -40px;
+    right: -40px;
+    top: var(--horizon);
+    height: 55vh;
+    background: repeating-linear-gradient(105deg,
+        transparent 0 70px, rgba(210, 245, 255, .13) 70px 115px, transparent 115px 190px,
+        rgba(210, 245, 255, .08) 190px 215px, transparent 215px 300px);
+    -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 100%);
+    mask-image: linear-gradient(180deg, #000 0%, transparent 100%);
+    animation: shimmer 11s ease-in-out infinite alternate;
+}
+@keyframes shimmer {
+    from { opacity: .45; transform: translate3d(-24px, 0, 0); }
+    to   { opacity: 1;   transform: translate3d(24px, 0, 0); }
+}
+
+/* Fish silhouettes cross the screen; --x is where they rest when motion is reduced. */
+.fish { left: var(--x); width: 46px; animation: swim 46s linear infinite; }
+.fish svg { display: block; width: 100%; height: auto; transform: scaleX(-1); }   /* art faces left */
+.fish path { fill: rgba(3, 26, 52, .5); transition: fill 1s ease; }
+.free .fish path { fill: rgba(40, 10, 30, .5); }
+.fish.rev { animation-name: swim-rev; }
+.fish.rev svg { transform: none; }
+.f1 { top: 47%; animation-duration: 42s; animation-delay: -12s; }
+.f2 { top: 60%; width: 34px; animation-duration: 55s; animation-delay: -30s; }
+.f3 { top: 73%; width: 62px; animation-duration: 64s; animation-delay: -8s; }
+.f4 { top: 54%; width: 26px; animation-duration: 38s; animation-delay: -20s; }
+@keyframes swim {
+    from { transform: translate3d(calc(-1 * var(--x) - 80px), 0, 0); }
+    to   { transform: translate3d(calc(100vw - var(--x) + 20px), 0, 0); }
+}
+@keyframes swim-rev {
+    from { transform: translate3d(calc(100vw - var(--x) + 20px), 0, 0); }
+    to   { transform: translate3d(calc(-1 * var(--x) - 80px), 0, 0); }
+}
+
+/* Bubble columns: a tall tile strip slides up by exactly one tile height, so the loop is seamless. */
+.bubbles {
+    top: calc(var(--horizon) + 3vh);
+    bottom: 0;
+    width: 40px;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(0deg, #000 60%, transparent);
+    mask-image: linear-gradient(0deg, #000 60%, transparent);
+}
+.bubbles .rise {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 200%;
+    background-image:
+        radial-gradient(circle at 30% 88%, transparent 0 3px, rgba(225, 248, 255, .6) 3.5px 4.6px, transparent 5.2px),
+        radial-gradient(circle at 62% 70%, transparent 0 2px, rgba(225, 248, 255, .5) 2.5px 3.4px, transparent 4px),
+        radial-gradient(circle at 40% 47%, transparent 0 4px, rgba(225, 248, 255, .5) 4.5px 5.6px, transparent 6.2px),
+        radial-gradient(circle at 70% 24%, transparent 0 1.6px, rgba(225, 248, 255, .55) 2px 2.8px, transparent 3.4px),
+        radial-gradient(circle at 35% 8%, transparent 0 2.6px, rgba(225, 248, 255, .45) 3px 4px, transparent 4.6px);
+    background-size: 100% 50%;
+    background-repeat: repeat-y;
+    animation: rise 16s linear infinite;
+}
+.b1 { left: 7%; }
+.b2 { left: 31%; }
+.b2 .rise { animation-duration: 21s; animation-delay: -7s; }
+.b3 { left: 67%; }
+.b3 .rise { animation-duration: 18s; animation-delay: -3s; }
+.b4 { left: 90%; }
+.b4 .rise { animation-duration: 24s; animation-delay: -12s; }
+@keyframes rise {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(0, -50%, 0); }
+}
+
+.seabed {
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: clamp(90px, 17vh, 180px);
+}
+.seabed .sand-back { fill: #7f6f4e; }
+.seabed .sand      { fill: #a8915e; }
+.seabed .rock      { fill: #4d6170; }
+.seabed .rock.dark { fill: #3a4b58; }
+.seabed .star      { fill: #e0704a; }
+.seabed .shell     { fill: #f2d6c0; }
+
+.weed {
+    bottom: 0;
+    width: 34px;
+    height: 17vh;
+    transform-origin: 50% 100%;
+    animation: sway 6s ease-in-out infinite alternate;
+}
+.weed svg { display: block; width: 100%; height: 100%; }
+.weed path { fill: #2a8a52; }
+.w1 { left: 2%;  height: 20vh; }
+.w2 { left: 6%;  height: 13vh; width: 26px; animation-duration: 7.5s; animation-delay: -2s; }
+.w2 path, .w5 path { fill: #1d6e47; }
+.w3 { left: 15%; height: 16vh; animation-duration: 8s; animation-delay: -4s; }
+.w4 { left: 80%; height: 18vh; animation-duration: 6.8s; animation-delay: -1s; }
+.w5 { left: 88%; height: 12vh; width: 26px; animation-duration: 7s; animation-delay: -3s; }
+.w6 { left: 95%; height: 21vh; animation-duration: 8.5s; animation-delay: -5s; }
+@keyframes sway {
+    from { transform: rotate(-4deg); }
+    to   { transform: rotate(4deg); }
+}
+
+/* Darker, calmer area behind the machine so the reels stay the focus, plus soft edges. */
+.vignette {
+    inset: 0;
+    background:
+        radial-gradient(ellipse 46% 50% at 50% 50%, rgba(2, 14, 30, .5), rgba(2, 14, 30, .28) 60%, transparent 100%),
+        radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0, 8, 20, .5) 100%);
+}
+
+@media (max-width: 600px) {
+    .cloud { width: 110px; }
+    .c2 { width: 80px; }
+    .c3 { display: none; }
+    .weed { width: 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .scene *, .scene { animation: none !important; transition: none !important; }
+}

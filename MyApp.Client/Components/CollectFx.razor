@@ -1,0 +1,27 @@
+@* Running collect total shown on the collecting fisherman's cell (laid over the reels, like the net cast).
+   The page (Home.Collect.cs) drives the numbers; this only places and styles them. *@
+<div class="collectfx @(Row == 0 ? "top" : null)" aria-hidden="true"
+     style="--r: @Reel; --row: @Row">
+    <div class="total @(Final ? "final" : null)" @key="Final">
+        <span class="amount">@Fmt.Money(Amount)</span>
+        @if (!Final && Factor is not null)
+        {
+            <span class="factor">@Factor</span>
+        }
+    </div>
+</div>
+
+@code {
+    /// <summary>Cell of the fisherman who collects (reel 0-4, row 0-2).</summary>
+    [Parameter] public int Reel { get; set; }
+    [Parameter] public int Row { get; set; }
+
+    /// <summary>Running total so far (the fish sum, then the final CollectWin).</summary>
+    [Parameter] public decimal Amount { get; set; }
+
+    /// <summary>Shown after the sum, e.g. "×2 ×3" (fishermen, multiplier); null = none.</summary>
+    [Parameter] public string? Factor { get; set; }
+
+    /// <summary>True once <see cref="Amount"/> is the final CollectWin (pops in gold).</summary>
+    [Parameter] public bool Final { get; set; }
+}

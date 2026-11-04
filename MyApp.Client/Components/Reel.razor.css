@@ -60,30 +60,42 @@
     80%  { transform: translate3d(0, 1.5%, 0); animation-timing-function: ease-in-out; }
     100% { transform: translate3d(0, 0, 0); }
 }
-/* ---------- held reel (nudge respin) ---------- */
-.held-frame {
+/* ---------- held reel (nudge respin): a rope loop around the Boat ---------- */
+/* Lives inside the Boat's cell, so it slides down with the strip during the nudge. */
+.rope {
     position: absolute;
     inset: 0;
-    z-index: 3;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
     pointer-events: none;
-    border: 3px solid var(--gold);
-    border-radius: 6px;
-    box-shadow: inset 0 0 12px rgba(244, 200, 79, .8), 0 0 10px rgba(244, 200, 79, .7);
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
+    overflow: visible;
+    filter: drop-shadow(0 1px 1px rgba(40, 20, 0, .55));
 }
+.rope path { fill: none; stroke-linecap: round; }
+.rope-core  { stroke: #d2ad6e; stroke-width: 6; }
+.rope-twist { stroke: #7a5428; stroke-width: 6; stroke-dasharray: 1.6 3.4; }
+.rope-shine { stroke: #f6e4b8; stroke-width: 1.4; stroke-dasharray: 2.2 2.8; stroke-dashoffset: 1; }
+.rope-knot path { stroke: #b48a50; stroke-width: 4; }
+.rope-knot circle { fill: #c49a5c; stroke: #6e4a22; stroke-width: 1.5; }
 
-.held-tag {
-    margin-top: -1px;
-    padding: 1px 6px 2px;
-    border-radius: 0 0 6px 6px;
-    background: linear-gradient(180deg, var(--gold-light), var(--gold));
-    color: #3b2400;
-    font-size: max(9px, calc(var(--cell) * .12));
-    font-weight: 900;
-    letter-spacing: 1px;
-    line-height: 1.2;
+/* draw: the core is traced around the boat, then the twist texture and the knot appear. */
+.rope.draw .rope-core { stroke-dasharray: 100; animation: rope-draw .55s ease-out both; }
+.rope.draw .rope-twist, .rope.draw .rope-shine, .rope.draw .rope-knot { animation: rope-show .2s .5s ease-out both; }
+/* fade: after the respin ends. */
+.rope.fade { animation: rope-fade .6s .35s ease-in forwards; }
+
+@keyframes rope-draw {
+    from { stroke-dashoffset: 100; }
+    to   { stroke-dashoffset: 0; }
+}
+@keyframes rope-show {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+@keyframes rope-fade {
+    from { opacity: 1; }
+    to   { opacity: 0; }
 }
 
 
@@ -109,21 +121,44 @@
 /* Symbols with a badge/tag underneath sit a little higher and smaller. */
 .sym-fish .art, .sym-wild .art, .sym-scatter .art { width: 74%; height: 74%; transform: translateY(-11%); }
 
+/* Fish sit on a square water-blue tag; the cash value is printed inside the tag's bottom band.
+   Painted in DOM order: tile (::before) -> fish art (relative) -> value. */
+.sym-fish::before {
+    content: "";
+    position: absolute;
+    inset: 6%;
+    border-radius: 16%;
+    background:
+        radial-gradient(ellipse at 35% 22%, rgba(255, 255, 255, .55), transparent 55%),
+        linear-gradient(180deg, #c9eeff 0%, #7cc6ec 60%, #4a9fd0 100%);
+    border: 2px solid #1f5f8c;
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .45), 0 2px 3px rgba(0, 30, 60, .35);
+    pointer-events: none;
+}
+.sym-fish .art { position: relative; }
+
+/* The value sits straight on the tile: bold white with a dark outline (text-shadow ring) for contrast.
+   --len (characters, set by Reel.razor) shrinks long values like "1,000.00" so they always fit the tile. */
 .cell .val {
     position: absolute;
-    bottom: 6%;
+    bottom: 11%;
     left: 50%;
     transform: translateX(-50%);
-    padding: 0 5px;
-    border-radius: 8px;
-    font-size: max(10px, calc(var(--cell) * .17));
+    max-width: 84%;
+    font-size: max(8px, calc(var(--cell) * min(.2, 1.36 / var(--len, 4))));
     font-weight: 900;
-    color: #3b2400;
-    background: linear-gradient(180deg, var(--gold-light), var(--gold));
-    border: 1px solid var(--gold-dark);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.2px;
+    color: #fff;
+    text-shadow:
+        -1px -1px 0 #0a3354, 1px -1px 0 #0a3354, -1px 1px 0 #0a3354, 1px 1px 0 #0a3354,
+        0 2px 2px rgba(0, 20, 40, .6);
     white-space: nowrap;
-    line-height: 1.25;
+    line-height: 1.2;
+    transition: opacity .15s ease;
 }
+/* Collect: the value has lifted off and is flying to the fisherman. */
+.cell.gathered .val { opacity: 0; }
 
 .cell .tag {
     position: absolute;
@@ -241,6 +276,46 @@
     to   { transform: scale(1.35); opacity: 0; }
 }
 
+/* ---------- collect (free spins) ---------- */
+/* The fisherman hauling the catch in, and his sparkle burst before he flies to the counter bar. */
+.cell.collector, .cell.sparkle {
+    z-index: 1;
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 3px #7dffb2, inset 0 0 18px rgba(80, 220, 140, .8);
+}
+.cell.collector .art { animation: fisher-haul .5s ease-in-out infinite alternate; }
+.cell.sparkle {
+    box-shadow: inset 0 0 0 3px #fff3b0, inset 0 0 22px rgba(255, 220, 120, .95), 0 0 16px rgba(255, 220, 120, .9);
+}
+.cell.sparkle::after {
+    content: "";
+    position: absolute;
+    inset: 4%;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 50% 8%,  #fff 0 2px, transparent 3px),
+        radial-gradient(circle at 92% 50%, #fff 0 2px, transparent 3px),
+        radial-gradient(circle at 50% 92%, #fff 0 2px, transparent 3px),
+        radial-gradient(circle at 8% 50%,  #fff 0 2px, transparent 3px),
+        radial-gradient(circle at 20% 20%, #ffe8a0 0 2.5px, transparent 3.5px),
+        radial-gradient(circle at 80% 20%, #ffe8a0 0 2.5px, transparent 3.5px),
+        radial-gradient(circle at 80% 80%, #ffe8a0 0 2.5px, transparent 3.5px),
+        radial-gradient(circle at 20% 80%, #ffe8a0 0 2.5px, transparent 3.5px),
+        radial-gradient(circle, rgba(255, 240, 180, .7), transparent 60%);
+    animation: sparkle-burst .55s ease-out both;
+}
+
+@keyframes fisher-haul {
+    from { transform: translateY(-11%) rotate(-6deg); }
+    to   { transform: translateY(-14%) rotate(6deg); }
+}
+
+@keyframes sparkle-burst {
+    0%   { transform: scale(.4) rotate(0deg); opacity: 0; }
+    35%  { opacity: 1; }
+    100% { transform: scale(1.25) rotate(25deg); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     /* No scrolling: show the previous symbols faded while waiting, then the result. */
     .strip.looping { animation: none; filter: none; transform: translate3d(0, -50%, 0); opacity: .5; }
@@ -248,4 +323,8 @@
     .cell.react .art, .cell.pop .art, .cell.pop .val { animation: none; }
     .cell.pop::after { display: none; }
     .cell { transition: none; }
+    .rope.draw .rope-core, .rope.draw .rope-twist, .rope.draw .rope-shine, .rope.draw .rope-knot { animation: none; }
+    .rope.fade { animation: none; opacity: 0; }
+    .cell.collector .art, .cell.sparkle::after { animation: none; }
+    .cell .val { transition: none; }
 }

@@ -2,6 +2,9 @@
 
 <PageTitle>Lucky Lure</PageTitle>
 
+@* Fixed lake scene behind everything; switches to the sunset mood while the free-spin banner shows. *@
+<Scene Free="ShowBanner" />
+
 @* Header and FREE SPINS banner share one slot (stacked in the same grid cell), so the reels never move when
    the feature starts or ends — no layout jump under the overlays. *@
 <div class="masthead @(ShowBanner ? "feature" : null)">
@@ -11,14 +14,16 @@
     </header>
     @if (Ready)
     {
-        <FreeSpinBanner State="state!" Info="info!" FeatureWin="featureWinOverride" />
+        <FreeSpinBanner State="state!" Info="info!" FeatureWin="featureWinOverride" WildsShown="wildsShown" />
     }
 </div>
 
 @* .cabinet only matters on wide screens: there the SPIN column sits to the right of the reels (see app.css). *@
-<div class="cabinet">
+@* fs-mood: frame, controls and SPIN shift to the gold/sunset palette (same switch as the scene). *@
+<div class="cabinet @(ShowBanner ? "fs-mood" : null)">
 <main class="machine">
     <div class="frame @(netShake ? "shake" : null)">
+        <FrameDeco />
         <div class="reels" aria-label="Reels">
             @for (var r = 0; r < Symbols.Reels; r++)
             {
@@ -28,7 +33,7 @@
                       Held="heldReels[reel]"
                       WinRows="winMarks?[reel]"
                       BoatRows="boatMarks?[reel]"
-                      FxRows="netFx?[reel]"
+                      FxRows="netFx?[reel] ?? collectFx?[reel]"
                       Dim="winMarks is not null || boatMarks is not null"
                       FillerBet="fillerBet"
                       FreeMode="fillerFree" />
@@ -37,6 +42,10 @@
             @if (netCast is not null)
             {
                 <NetCastFx Size="netCast.Size" />
+            }
+            @if (collect is not null)
+            {
+                <CollectFx Reel="collect.Reel" Row="collect.Row" Amount="collect.Amount" Factor="@collect.Factor" Final="collect.Final" />
             }
         </div>
     </div>
@@ -71,7 +80,7 @@
         </button>
         <button class="spin-btn @(InFeature ? "free" : null)" type="button"
                 disabled="@(!Ready || busy)" @onclick="SpinAsync">
-            @(InFeature ? "FREE SPIN" : "SPIN")
+            @if (InFeature) { <text>FREE<br />SPIN</text> } else { <text>SPIN</text> }
         </button>
         <button class="reset-link" type="button" disabled="@(!Ready || busy || resetting)" @onclick="ResetAsync">
             Reset balance
@@ -84,9 +93,9 @@
 
 <footer class="footer">Lucky Lure is a game for entertainment. Balances are play money and have no cash value.</footer>
 
-@if (netCast is not null)
+@if (netCast is not null || collecting)
 {
-    @* Transparent layer: a click anywhere (or Space/Enter, via [data-skippable]) skips the net-cast animation. *@
+    @* Transparent layer: a click anywhere (or Space/Enter, via [data-skippable]) skips the net cast / collect. *@
     <div class="skip-layer" data-skippable @onclick="celebrationGate.Skip"></div>
 }
 
